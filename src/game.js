@@ -1,6 +1,6 @@
 /* ============================================================
    FIGHTER KONOHA — Main Game Loop
-   Sudah termasuk: CROUCH + CPU AI
+   Fitur: CROUCH + CPU AI + 2 tipe serangan (tangan/kaki)
    ============================================================ */
 
 import { CFG, CONTROLS, CONTROLS_LABELS, KEY_DISPLAY } from './config.js';
@@ -126,8 +126,6 @@ let roundActive = false;
 let coins = 0;
 let settingsReturn = null;
 let bgPattern = null;
-
-// CPU AI
 let p2IsCpu = false;
 let p2Ai = null;
 
@@ -417,7 +415,6 @@ function startMatch() {
   const c1 = CHARACTERS[selectedP1] || CHARACTERS.praroro;
   const c2 = CHARACTERS[selectedP2] || CHARACTERS.fufu;
 
-  // Tentukan apakah P2 dikontrol CPU
   p2IsCpu = (selectedMode !== 'koalisi');
   p2Ai = p2IsCpu ? new CpuController(CONTROLS.p2) : null;
 
@@ -468,7 +465,7 @@ function updateClash() {
   if (p2IsCpu) {
     if (p2Ai && p2Ai.autoClash()) { clash.p2++; audio.clashHit(); }
   } else {
-    if (input.consume(['Numpad1', 'Comma'])) { clash.p2++; audio.clashHit(); }
+    if (input.consume(['Numpad1', 'KeyZ'])) { clash.p2++; audio.clashHit(); }
   }
   if (clash.p1 >= clash.target) resolveClash(1);
   else if (clash.p2 >= clash.target) resolveClash(2);
@@ -502,8 +499,7 @@ function checkCollisions() {
   const h1HitsH2 = h1 && hb2 && overlap(h1, hb2);
   const h2HitsH1 = h2 && hb1 && overlap(h2, hb1);
 
-  if (h1HitsH2 && h2HitsH1 &&
-      h1.move.type === 'heavy' && h2.move.type === 'heavy') {
+  if (h1HitsH2 && h2HitsH1 && h1.move.heavy && h2.move.heavy) {
     startClash();
     return;
   }
@@ -527,8 +523,13 @@ function checkCollisions() {
 
 function playHitSfx(move, blocked) {
   if (blocked) { audio.hitBlock(); return; }
-  if (move.type === 'heavy' || move.type === 'ultimate') audio.hitHeavy();
-  else audio.hitLight();
+  if (move.limb === 'leg') {
+    if (move.heavy) audio.kickHeavy();
+    else audio.kickLight();
+  } else {
+    if (move.heavy) audio.hitHeavy();
+    else audio.hitLight();
+  }
 }
 
 function update() {
@@ -737,6 +738,7 @@ function drawFighter(f) {
   const isHit = f.hitstun > 0 || f.stunTimer > 0;
   const isBlock = f.blocking && grounded;
   const isAttack = f.state === 'attack';
+  const attackLimb = f.attackLimb;
   const blink = f.invincible > 0 && Math.floor(t / 3) % 2 === 0;
 
   ctx.save();
@@ -749,7 +751,7 @@ function drawFighter(f) {
   if (isKO) {
     ctx.translate(cx, CFG.GROUND - 14);
     ctx.rotate(facing === 1 ? -Math.PI / 2 : Math.PI / 2);
-    drawBody(0, 0, color, facing, { legSpread: 6, armSpread: 30, headTilt: 20 });
+    drawBody(0, 0, color, facing, { legSpread: 6, armSpread: 30, headTilt: 20 }, {});
     ctx.restore();
     return;
   }
@@ -759,9 +761,9 @@ function drawFighter(f) {
   let lean = 0;
   if (isHit) lean = -facing * 8;
   if (!grounded) lean = facing * 4;
-  if (isAttack && f.move) {
-    const m = f.move;
-    if (f.moveFrame >= m.startup && f.moveFrame < m.startup + m.active) lean = facing * 10;
+  if (isAttack) {
+    if (attackLimb === 'hand') lean = facing * 8;
+    else if (attackLimb === 'leg') lean = -facing * 4;
   }
 
   const legPhase = walking ? Math.sin(t * 0.35) : 0;
@@ -769,18 +771,20 @@ function drawFighter(f) {
     legSpread: crouch
       ? 20
       : (grounded ? (walking ? 14 + legPhase * 10 : (isBlock ? 6 : 10)) : 4),
-    armSpread: crouch ? 10 : (isBlock ? 4 : (isAttack ? 26 : 16)),
+    armSpread: crouch ? 10 : (isBlock ? 4 : 16),
     headTilt: isHit ? -facing * 10 : 0,
     lean: crouch ? 0 : lean
   };
 
+  const flags = { isBlock, isAttack, isHit, attackLimb };
+
   if (crouch) {
     ctx.save();
     ctx.scale(1, 0.62);
-    drawBody(0, 0, blink ? '#0ff' : color, facing, pose, { isBlock, isAttack, isHit, isCrouch: true });
+    drawBody(0, 0, blink ? '#0ff' : color, facing, pose, flags);
     ctx.restore();
   } else {
-    drawBody(0, 0, blink ? '#0ff' : color, facing, pose, { isBlock, isAttack, isHit });
+    drawBody(0, 0, blink ? '#0ff' : color, facing, pose, flags);
   }
 
   const labelY = crouch ? -110 : -168;
@@ -809,13 +813,31 @@ function drawFighter(f) {
 function drawBody(ox, oy, color, facing, pose, flags) {
   flags = flags || {};
   const lean = pose.lean || 0;
+
   ctx.save();
   ctx.translate(ox, oy);
   ctx.transform(1, 0, 0, 1, lean * 0.15, 0);
 
-  ctx.fillStyle = shade(color, -30);
-  ctx.fillRect(-pose.legSpread - 8, -60, 14, 60);
-  ctx.fillRect(pose.legSpread - 6, -60, 14, 60);
+  if (flags.attackLimb === 'leg') {
+    ctx.fillStyle = shade(color, -30);
+    if (facing === 1) {
+      ctx.fillRect(-pose.legSpread - 8, -60, 14, 60);
+    } else {
+      ctx.fillRect(pose.legSpread - 6, -60, 14, 60);
+    }
+    const kickLen = 58;
+    const kickY = -55;
+    ctx.fillStyle = shade(color, -10);
+    if (facing === 1) {
+      ctx.fillRect(14, kickY, kickLen, 16);
+    } else {
+      ctx.fillRect(-14 - kickLen, kickY, kickLen, 16);
+    }
+  } else {
+    ctx.fillStyle = shade(color, -30);
+    ctx.fillRect(-pose.legSpread - 8, -60, 14, 60);
+    ctx.fillRect(pose.legSpread - 6, -60, 14, 60);
+  }
 
   ctx.fillStyle = color;
   roundRect(-26, -118, 52, 62, 8);
@@ -823,9 +845,23 @@ function drawBody(ox, oy, color, facing, pose, flags) {
 
   ctx.fillStyle = shade(color, -15);
   const armY = -108;
+
   if (flags.isBlock) {
     ctx.fillRect(facing === 1 ? 2 : -34, armY + 6, 32, 14);
     ctx.fillRect(facing === 1 ? -10 : -22, armY + 18, 32, 14);
+  } else if (flags.attackLimb === 'hand') {
+    const punchLen = 46;
+    if (facing === 1) {
+      ctx.fillRect(20, armY, punchLen, 16);
+    } else {
+      ctx.fillRect(-20 - punchLen, armY, punchLen, 16);
+    }
+    ctx.fillStyle = shade(color, -25);
+    if (facing === 1) {
+      ctx.fillRect(-30, armY + 12, 16, 24);
+    } else {
+      ctx.fillRect(14, armY + 12, 16, 24);
+    }
   } else {
     const frontArmX = facing === 1 ? 20 : -20 - pose.armSpread;
     ctx.fillRect(frontArmX, armY, pose.armSpread, 14);
@@ -893,7 +929,7 @@ function drawClash() {
 
   ctx.fillStyle = '#f4a300';
   ctx.font = 'bold 26px sans-serif';
-  ctx.fillText('Mash [J] (P1)  |  ' + (p2IsCpu ? 'CPU mash otomatis' : 'Mash [,] atau [Numpad1] (P2)'), CFG.W / 2, 450);
+  ctx.fillText('Mash [J] (P1)  |  ' + (p2IsCpu ? 'CPU mash otomatis' : 'Mash [Z] atau [Num1] (P2)'), CFG.W / 2, 450);
 
   ctx.textAlign = 'left';
 }
