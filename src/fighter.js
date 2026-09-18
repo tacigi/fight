@@ -1,3 +1,8 @@
+/* ============================================================
+   FIGHTER KONOHA — Class Fighter
+   State machine, fisika, hitbox, hurtbox, damage.
+   ============================================================ */
+
 import { CFG } from './config.js';
 
 export class Fighter {
@@ -30,6 +35,8 @@ export class Fighter {
     this.strikerUsed = false;
     this.comboCount = 0;
     this.comboTimer = 0;
+    this.maxCombo = 0;
+    this.totalDamage = 0;
   }
 
   get hurtbox() {
@@ -48,8 +55,10 @@ export class Fighter {
     return {
       x: this.facing === 1 ? this.x + hb.x : this.x - hb.x - hb.w,
       y: this.y + hb.y,
-      w: hb.w, h: hb.h,
-      move: m, owner: this,
+      w: hb.w,
+      h: hb.h,
+      move: m,
+      owner: this
     };
   }
 
@@ -66,26 +75,22 @@ export class Fighter {
 
     if (this.state === 'ko') { this.applyPhysics(); return; }
 
-    // auto-face lawan saat di darat & tidak menyerang
     if (this.state !== 'attack' && this.y >= CFG.GROUND) {
       this.facing = opponent.x >= this.x ? 1 : -1;
     }
 
-    // stun / hitstun -> tidak bisa aksi
     if (this.hitstun > 0 || this.stunTimer > 0) {
       this.state = 'hitstun';
       this.applyPhysics();
       return;
     }
 
-    // sedang menyerang
     if (this.state === 'attack') {
       this.updateAttack();
       this.applyPhysics();
       return;
     }
 
-    // bebas bergerak
     this.handleMovement(input);
     this.handleActions(input);
     this.applyPhysics();
@@ -95,22 +100,27 @@ export class Fighter {
     const k = this.controls;
     const grounded = this.y >= CFG.GROUND;
     const holdingBack =
-      (this.facing === 1 && input.current[k.left]) ||
-      (this.facing === -1 && input.current[k.right]);
+      (this.facing === 1 && input.isDown(k.left)) ||
+      (this.facing === -1 && input.isDown(k.right));
 
     this.blocking = holdingBack && grounded;
-
     if (!grounded) return;
 
     let moving = false;
-    if (input.current[k.left])  { this.x -= (this.facing === -1 ? CFG.WALK : CFG.BACK); moving = true; }
-    if (input.current[k.right]) { this.x += (this.facing ===  1 ? CFG.WALK : CFG.BACK); moving = true; }
+    if (input.isDown(k.left)) {
+      this.x -= (this.facing === -1 ? CFG.WALK : CFG.BACK);
+      moving = true;
+    }
+    if (input.isDown(k.right)) {
+      this.x += (this.facing === 1 ? CFG.WALK : CFG.BACK);
+      moving = true;
+    }
 
-    if (input.current[k.up]) {
+    if (input.isDown(k.up)) {
       this.vy = CFG.JUMP_V;
       this.vx = 0;
-      if (input.current[k.left])  this.vx = -CFG.WALK;
-      if (input.current[k.right]) this.vx =  CFG.WALK;
+      if (input.isDown(k.left)) this.vx = -CFG.WALK;
+      if (input.isDown(k.right)) this.vx = CFG.WALK;
       this.state = 'jump';
       return;
     }
@@ -120,20 +130,23 @@ export class Fighter {
 
   handleActions(input) {
     const k = this.controls;
-    if (input.consume(k.light))                                  this.startMove(this.data.moves.light);
-    else if (input.consume(k.heavy))                             this.startMove(this.data.moves.heavy);
-    else if (input.consume(k.special))                           this.startMove(this.data.moves.special);
-    else if (this.gauge >= CFG.MAX_GAUGE && input.consume(k.ultimate)) {
+
+    if (input.consume(k.light)) {
+      this.startMove(this.data.moves.light);
+    } else if (input.consume(k.heavy)) {
+      this.startMove(this.data.moves.heavy);
+    } else if (input.consume(k.special)) {
+      this.startMove(this.data.moves.special);
+    } else if (this.gauge >= CFG.MAX_GAUGE && input.consume(k.ultimate)) {
       this.gauge = 0;
       this.startMove(this.data.moves.ultimate);
-    }
-    else if (input.consume(k.taunt)) {
+      if (window.FK_announce) window.FK_announce('ULTIMATE!');
+    } else if (input.consume(k.taunt)) {
       this.gauge = Math.min(CFG.MAX_GAUGE, this.gauge + 10);
-    }
-    else if (input.consume(k.striker) && !this.strikerUsed) {
+    } else if (input.consume(k.striker) && !this.strikerUsed) {
       this.strikerUsed = true;
-      // Hook untuk sistem striker (lihat roadmap)
-      console.log(this.data.name + ' memanggil striker!');
+      if (window.FK_toast) window.FK_toast(this.data.name + ' memanggil striker!');
+      this.gauge = Math.min(CFG.MAX_GAUGE, this.gauge + 15);
     }
   }
 
@@ -162,7 +175,8 @@ export class Fighter {
       this.x += this.vx;
       if (this.y >= CFG.GROUND) {
         this.y = CFG.GROUND;
-        this.vy = 0; this.vx = 0;
+        this.vy = 0;
+        this.vx = 0;
         if (this.state === 'jump') this.state = 'idle';
       }
     }
@@ -172,15 +186,19 @@ export class Fighter {
   takeHit(move, attacker, blocked) {
     if (blocked) {
       this.blockstun = move.blockstun || 8;
-      this.hp -= (move.damage || 0) * 0.15;   // chip damage
+      const chip = (move.damage || 0) * 0.15;
+      this.hp -= chip;
+      attacker.totalDamage += chip;
       this.x += attacker.facing * (move.pushback || 4) * 0.5;
     } else {
       this.hp -= move.damage || 0;
+      attacker.totalDamage += move.damage || 0;
       this.hitstun = move.hitstun || 12;
       this.x += attacker.facing * (move.pushback || 4);
       this.gauge = Math.min(CFG.MAX_GAUGE, this.gauge + (move.damage || 0) * 0.3);
       attacker.gauge = Math.min(CFG.MAX_GAUGE, attacker.gauge + (move.gaugeGain || 0));
       attacker.comboCount++;
+      if (attacker.comboCount > attacker.maxCombo) attacker.maxCombo = attacker.comboCount;
       attacker.comboTimer = 60;
     }
     if (this.hp <= 0) { this.hp = 0; this.state = 'ko'; }
