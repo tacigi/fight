@@ -1,6 +1,6 @@
 /* ============================================================
    FIGHTER KONOHA — Class Fighter
-   Sudah mendukung crouch (menunduk).
+   Sudah mendukung crouch + 4 tipe serangan dasar.
    ============================================================ */
 
 import { CFG } from './config.js';
@@ -37,10 +37,9 @@ export class Fighter {
     this.comboTimer = 0;
     this.maxCombo = 0;
     this.totalDamage = 0;
-    this.crouching = false;   // <-- FITUR BARU
+    this.crouching = false;
   }
 
-  // Hurtbox mengecil saat menunduk
   get hurtbox() {
     if (this.invincible > 0 || this.state === 'ko') return null;
     if (this.crouching) {
@@ -65,6 +64,15 @@ export class Fighter {
       move: m,
       owner: this
     };
+  }
+
+  get attackLimb() {
+    if (this.state !== 'attack' || !this.move) return null;
+    const m = this.move;
+    if (!m.limb) return null;
+    if (this.moveFrame < m.startup) return null;
+    if (this.moveFrame >= m.startup + m.active) return null;
+    return m.limb;
   }
 
   update(input, opponent) {
@@ -116,9 +124,6 @@ export class Fighter {
       return;
     }
 
-    // ---- FITUR CROUCH ----
-    // Jika tombol "down" ditahan saat di darat -> crouch.
-    // Prioritas: crouch > jalan > idle.
     if (input.isDown(k.down)) {
       this.crouching = true;
       this.state = 'crouch';
@@ -152,10 +157,14 @@ export class Fighter {
   handleActions(input) {
     const k = this.controls;
 
-    if (input.consume(k.light)) {
-      this.startMove(this.data.moves.light);
-    } else if (input.consume(k.heavy)) {
-      this.startMove(this.data.moves.heavy);
+    if (input.consume(k.punchLight)) {
+      this.startMove(this.data.moves.punchLight);
+    } else if (input.consume(k.punchHeavy)) {
+      this.startMove(this.data.moves.punchHeavy);
+    } else if (input.consume(k.kickLight)) {
+      this.startMove(this.data.moves.kickLight);
+    } else if (input.consume(k.kickHeavy)) {
+      this.startMove(this.data.moves.kickHeavy);
     } else if (input.consume(k.special)) {
       this.startMove(this.data.moves.special);
     } else if (this.gauge >= CFG.MAX_GAUGE && input.consume(k.ultimate)) {
