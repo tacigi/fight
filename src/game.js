@@ -1,6 +1,6 @@
 /* ============================================================
    FIGHTER KONOHA — Main Game Loop
-   Sudah termasuk fitur CROUCH (menunduk).
+   Sudah termasuk: CROUCH + CPU AI
    ============================================================ */
 
 import { CFG, CONTROLS, CONTROLS_LABELS, KEY_DISPLAY } from './config.js';
@@ -8,6 +8,7 @@ import { Input } from './input.js';
 import { CHARACTERS, ROSTER_ORDER } from './characters.js';
 import { Fighter } from './fighter.js';
 import { AudioManager } from './audio.js';
+import { CpuController } from './ai.js';
 
 window.addEventListener('error', (e) => {
   console.error('[FK] Error:', e.message, 'at', e.filename + ':' + e.lineno);
@@ -125,6 +126,10 @@ let roundActive = false;
 let coins = 0;
 let settingsReturn = null;
 let bgPattern = null;
+
+// CPU AI
+let p2IsCpu = false;
+let p2Ai = null;
 
 function runLoading() {
   const steps = [
@@ -284,7 +289,7 @@ function renderControlsTable() {
     '<div class="ctrl-row ctrl-head">' +
       '<span class="ctrl-label">Aksi</span>' +
       '<span class="ctrl-key">Player 1</span>' +
-      '<span class="ctrl-key">Player 2</span>' +
+      '<span class="ctrl-key">Player 2 / CPU</span>' +
     '</div>' + rowsHtml;
 }
 
@@ -315,9 +320,9 @@ function openCharacterSelect(mode) {
   selectedP2 = null;
 
   const modeNames = {
-    pilpres: 'Pilpres Mode',
-    koalisi: 'Koalisi Mode (1v1)',
-    latihan: 'Latihan Kader'
+    pilpres: 'Pilpres Mode (vs CPU)',
+    koalisi: 'Koalisi Mode (2 Pemain)',
+    latihan: 'Latihan Kader (vs CPU)'
   };
   if (UI.selectMode) UI.selectMode.textContent = modeNames[mode] || mode;
   if (UI.p2PanelLabel) {
@@ -369,7 +374,7 @@ function updateSelectUI() {
     }
     if (card.dataset.charId === selectedP2) {
       card.classList.add('selected-p2');
-      if (badge) { badge.textContent = 'P2'; badge.style.display = ''; }
+      if (badge) { badge.textContent = (selectedMode === 'koalisi' ? 'P2' : 'CPU'); badge.style.display = ''; }
     }
   });
 
@@ -412,11 +417,15 @@ function startMatch() {
   const c1 = CHARACTERS[selectedP1] || CHARACTERS.praroro;
   const c2 = CHARACTERS[selectedP2] || CHARACTERS.fufu;
 
+  // Tentukan apakah P2 dikontrol CPU
+  p2IsCpu = (selectedMode !== 'koalisi');
+  p2Ai = p2IsCpu ? new CpuController(CONTROLS.p2) : null;
+
   p1 = new Fighter(c1, 400, 1, CONTROLS.p1);
   p2 = new Fighter(c2, 880, -1, CONTROLS.p2);
 
   if (UI.p1Name) UI.p1Name.textContent = c1.name;
-  if (UI.p2Name) UI.p2Name.textContent = c2.name;
+  if (UI.p2Name) UI.p2Name.textContent = c2.name + (p2IsCpu ? ' [CPU]' : '');
   if (UI.roundInd) UI.roundInd.textContent = 'ROUND 1';
 
   hitstop = 0;
@@ -438,7 +447,7 @@ function startMatch() {
 
   if (rafId !== null) cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(loop);
-  console.log('[FK] match started:', c1.name, 'vs', c2.name);
+  console.log('[FK] match started:', c1.name, 'vs', c2.name, p2IsCpu ? '(CPU)' : '(P2)');
 }
 
 function overlap(a, b) {
@@ -456,7 +465,11 @@ function updateClash() {
   if (clash.resolved) return;
   clash.timer--;
   if (input.consume('KeyJ')) { clash.p1++; audio.clashHit(); }
-  if (input.consume(['Numpad1', 'Comma'])) { clash.p2++; audio.clashHit(); }
+  if (p2IsCpu) {
+    if (p2Ai && p2Ai.autoClash()) { clash.p2++; audio.clashHit(); }
+  } else {
+    if (input.consume(['Numpad1', 'Comma'])) { clash.p2++; audio.clashHit(); }
+  }
   if (clash.p1 >= clash.target) resolveClash(1);
   else if (clash.p2 >= clash.target) resolveClash(2);
   else if (clash.timer <= 0) {
@@ -525,7 +538,14 @@ function update() {
   if (hitstop > 0) { hitstop--; return; }
 
   p1.update(input, p2);
-  p2.update(input, p1);
+
+  if (p2IsCpu && p2Ai) {
+    p2Ai.think(p2, p1);
+    p2.update(p2Ai, p1);
+  } else {
+    p2.update(input, p1);
+  }
+
   checkCollisions();
 
   if (roundActive) {
@@ -873,7 +893,7 @@ function drawClash() {
 
   ctx.fillStyle = '#f4a300';
   ctx.font = 'bold 26px sans-serif';
-  ctx.fillText('Mash [J] (P1)  |  Mash [,] atau [Numpad1] (P2)', CFG.W / 2, 450);
+  ctx.fillText('Mash [J] (P1)  |  ' + (p2IsCpu ? 'CPU mash otomatis' : 'Mash [,] atau [Numpad1] (P2)'), CFG.W / 2, 450);
 
   ctx.textAlign = 'left';
 }
