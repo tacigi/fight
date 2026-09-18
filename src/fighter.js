@@ -1,6 +1,5 @@
 /* ============================================================
    FIGHTER KONOHA — Class Fighter
-   State machine, fisika, hitbox, hurtbox, damage.
    ============================================================ */
 
 import { CFG } from './config.js';
@@ -122,6 +121,7 @@ export class Fighter {
       if (input.isDown(k.left)) this.vx = -CFG.WALK;
       if (input.isDown(k.right)) this.vx = CFG.WALK;
       this.state = 'jump';
+      if (window.FK_sfx) window.FK_sfx.jump();
       return;
     }
 
@@ -143,6 +143,7 @@ export class Fighter {
       if (window.FK_announce) window.FK_announce('ULTIMATE!');
     } else if (input.consume(k.taunt)) {
       this.gauge = Math.min(CFG.MAX_GAUGE, this.gauge + 10);
+      if (window.FK_sfx) window.FK_sfx.countGauge();
     } else if (input.consume(k.striker) && !this.strikerUsed) {
       this.strikerUsed = true;
       if (window.FK_toast) window.FK_toast(this.data.name + ' memanggil striker!');
@@ -156,6 +157,10 @@ export class Fighter {
     this.moveFrame = 0;
     this.hitDone = false;
     if (move.invincibleFrames) this.invincible = move.invincibleFrames;
+    if (window.FK_sfx) {
+      if (move.type === 'special') window.FK_sfx.special();
+      else if (move.type === 'ultimate') window.FK_sfx.ultimate();
+    }
   }
 
   updateAttack() {
@@ -201,6 +206,10 @@ export class Fighter {
       if (attacker.comboCount > attacker.maxCombo) attacker.maxCombo = attacker.comboCount;
       attacker.comboTimer = 60;
     }
-    if (this.hp <= 0) { this.hp = 0; this.state = 'ko'; }
+    if (this.hp <= 0) {
+      this.hp = 0;
+      this.state = 'ko';
+      if (window.FK_sfx) window.FK_sfx.ko();
+    }
   }
 }
