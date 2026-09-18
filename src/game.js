@@ -1,6 +1,11 @@
 /* ============================================================
-   FIGHTER KONOHA — Main Game Loop
-   Fitur: CROUCH + CPU AI + 2 tipe serangan (tangan/kaki)
+   FIGHTER KONOHA — Main Game Loop (FINAL)
+   Fitur:
+   - Crouch (menunduk)
+   - CPU AI
+   - 2 tipe serangan (pukulan tangan & tendangan kaki)
+   - Pilpres Mode: P1 pilih 1 karakter, CPU pilih random
+   - Animasi tendangan 3-fase (wind-up, tendang, tarik)
    ============================================================ */
 
 import { CFG, CONTROLS, CONTROLS_LABELS, KEY_DISPLAY } from './config.js';
@@ -117,6 +122,7 @@ let p1 = null, p2 = null;
 let canvas = null, ctx = null;
 let gameState = 'loading';
 let selectedP1 = null, selectedP2 = null, selectedMode = null;
+let singlePick = false;
 let hitstop = 0, screenShake = 0, clash = null;
 let lastTime = 0;
 let rafId = null;
@@ -312,20 +318,35 @@ function closeSettings() {
   settingsReturn = null;
 }
 
+/* ---------- MODE PILPRES: hanya pilih 1 karakter ---------- */
+function pickRandomOpponent(playerCharId) {
+  const pool = ROSTER_ORDER.filter((id) => id !== playerCharId);
+  if (pool.length === 0) return playerCharId;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 function openCharacterSelect(mode) {
   selectedMode = mode;
   selectedP1 = null;
   selectedP2 = null;
 
-  const modeNames = {
-    pilpres: 'Pilpres Mode (vs CPU)',
-    koalisi: 'Koalisi Mode (2 Pemain)',
-    latihan: 'Latihan Kader (vs CPU)'
-  };
-  if (UI.selectMode) UI.selectMode.textContent = modeNames[mode] || mode;
-  if (UI.p2PanelLabel) {
-    UI.p2PanelLabel.textContent = (mode === 'koalisi') ? 'PLAYER 2' : 'CPU';
+  singlePick = (mode === 'pilpres');
+
+  let modeLabel;
+  if (mode === 'pilpres') {
+    modeLabel = 'Pilpres Mode — Pilih 1 Karakter, Lawan Diacak CPU';
+  } else if (mode === 'latihan') {
+    modeLabel = 'Latihan Kader (Pilih 2 Karakter)';
+  } else {
+    modeLabel = 'Koalisi Mode (2 Pemain)';
   }
+  if (UI.selectMode) UI.selectMode.textContent = modeLabel;
+
+  if (UI.p2PanelLabel) {
+    if (singlePick) UI.p2PanelLabel.textContent = 'CPU (RANDOM)';
+    else UI.p2PanelLabel.textContent = (mode === 'koalisi') ? 'PLAYER 2' : 'CPU';
+  }
+
   renderRoster();
   updateSelectUI();
   showScreen('char-select');
@@ -350,13 +371,18 @@ function renderRoster() {
 }
 
 function pickCharacter(id) {
-  if (!selectedP1) {
+  if (singlePick) {
     selectedP1 = id;
-  } else if (!selectedP2) {
-    selectedP2 = id;
+    selectedP2 = pickRandomOpponent(id);
   } else {
-    selectedP1 = id;
-    selectedP2 = null;
+    if (!selectedP1) {
+      selectedP1 = id;
+    } else if (!selectedP2) {
+      selectedP2 = id;
+    } else {
+      selectedP1 = id;
+      selectedP2 = null;
+    }
   }
   updateSelectUI();
 }
@@ -366,13 +392,17 @@ function updateSelectUI() {
     card.classList.remove('selected-p1', 'selected-p2');
     const badge = card.querySelector('.rc-badge');
     if (badge) badge.style.display = 'none';
+
     if (card.dataset.charId === selectedP1) {
       card.classList.add('selected-p1');
       if (badge) { badge.textContent = 'P1'; badge.style.display = ''; }
     }
     if (card.dataset.charId === selectedP2) {
       card.classList.add('selected-p2');
-      if (badge) { badge.textContent = (selectedMode === 'koalisi' ? 'P2' : 'CPU'); badge.style.display = ''; }
+      if (badge) {
+        badge.textContent = singlePick ? 'CPU' : 'P2';
+        badge.style.display = '';
+      }
     }
   });
 
@@ -395,6 +425,11 @@ function updateSelectUI() {
     UI.p2Portrait.classList.add('filled');
     UI.p2NameLabel.textContent = c.name;
     UI.p2Arch.textContent = c.archetype;
+  } else if (singlePick) {
+    UI.p2Portrait.textContent = '🤖';
+    UI.p2Portrait.classList.remove('filled');
+    UI.p2NameLabel.textContent = '???';
+    UI.p2Arch.textContent = 'Akan dipilih acak';
   } else {
     UI.p2Portrait.textContent = '?';
     UI.p2Portrait.classList.remove('filled');
@@ -402,7 +437,13 @@ function updateSelectUI() {
     UI.p2Arch.textContent = 'Pilih karakter';
   }
 
-  if (UI.btnStart) UI.btnStart.disabled = !(selectedP1 && selectedP2);
+  if (UI.btnStart) {
+    if (singlePick) {
+      UI.btnStart.disabled = !selectedP1;
+    } else {
+      UI.btnStart.disabled = !(selectedP1 && selectedP2);
+    }
+  }
 }
 
 function startMatch() {
@@ -411,6 +452,10 @@ function startMatch() {
   if (!canvas) { console.error('[FK] Canvas #game tidak ditemukan'); return; }
   ctx = canvas.getContext('2d');
   if (!bgPattern) bgPattern = buildBackground();
+
+  if (singlePick && selectedP1 && !selectedP2) {
+    selectedP2 = pickRandomOpponent(selectedP1);
+  }
 
   const c1 = CHARACTERS[selectedP1] || CHARACTERS.praroro;
   const c2 = CHARACTERS[selectedP2] || CHARACTERS.fufu;
@@ -738,7 +783,27 @@ function drawFighter(f) {
   const isHit = f.hitstun > 0 || f.stunTimer > 0;
   const isBlock = f.blocking && grounded;
   const isAttack = f.state === 'attack';
-  const attackLimb = f.attackLimb;
+
+  let attackLimb = null;
+  let attackProgress = 0;
+  let attackActive = false;
+  if (isAttack && f.move && f.move.limb) {
+    const m = f.move;
+    const total = m.startup + m.active + m.recovery;
+    if (f.moveFrame < total) {
+      attackLimb = m.limb;
+      if (f.moveFrame < m.startup) {
+        attackProgress = m.startup > 0 ? f.moveFrame / m.startup : 1;
+      } else if (f.moveFrame < m.startup + m.active) {
+        attackProgress = 1;
+        attackActive = true;
+      } else {
+        const recovFrame = f.moveFrame - m.startup - m.active;
+        attackProgress = m.recovery > 0 ? Math.max(0, 1 - recovFrame / m.recovery) : 1;
+      }
+    }
+  }
+
   const blink = f.invincible > 0 && Math.floor(t / 3) % 2 === 0;
 
   ctx.save();
@@ -773,10 +838,21 @@ function drawFighter(f) {
       : (grounded ? (walking ? 14 + legPhase * 10 : (isBlock ? 6 : 10)) : 4),
     armSpread: crouch ? 10 : (isBlock ? 4 : 16),
     headTilt: isHit ? -facing * 10 : 0,
-    lean: crouch ? 0 : lean
+    lean: crouch ? 0 : lean,
+    attackLimb: attackLimb,
+    attackProgress: attackProgress
   };
 
-  const flags = { isBlock, isAttack, isHit, attackLimb };
+  const flags = {
+    isBlock: isBlock,
+    isAttack: isAttack,
+    isHit: isHit,
+    attackLimb: attackLimb,
+    attackProgress: attackProgress,
+    attackActive: attackActive,
+    isCrouch: crouch,
+    isAir: !grounded
+  };
 
   if (crouch) {
     ctx.save();
@@ -813,44 +889,43 @@ function drawFighter(f) {
 function drawBody(ox, oy, color, facing, pose, flags) {
   flags = flags || {};
   const lean = pose.lean || 0;
+  const dir = facing === 1 ? 1 : -1;
 
   ctx.save();
   ctx.translate(ox, oy);
   ctx.transform(1, 0, 0, 1, lean * 0.15, 0);
 
-  if (flags.attackLimb === 'leg') {
-    ctx.fillStyle = shade(color, -30);
+  const isKicking = flags.attackLimb === 'leg';
+  const isPunching = flags.attackLimb === 'hand';
+  const ext = (isKicking || isPunching) ? (flags.attackProgress || 0) : 0;
+
+  // ---- KAKI PENOPANG ----
+  ctx.fillStyle = shade(color, -30);
+  if (isKicking) {
     if (facing === 1) {
-      ctx.fillRect(-pose.legSpread - 8, -60, 14, 60);
+      ctx.fillRect(-10, -60, 14, 60);
     } else {
-      ctx.fillRect(pose.legSpread - 6, -60, 14, 60);
-    }
-    const kickLen = 58;
-    const kickY = -55;
-    ctx.fillStyle = shade(color, -10);
-    if (facing === 1) {
-      ctx.fillRect(14, kickY, kickLen, 16);
-    } else {
-      ctx.fillRect(-14 - kickLen, kickY, kickLen, 16);
+      ctx.fillRect(-4, -60, 14, 60);
     }
   } else {
-    ctx.fillStyle = shade(color, -30);
     ctx.fillRect(-pose.legSpread - 8, -60, 14, 60);
     ctx.fillRect(pose.legSpread - 6, -60, 14, 60);
   }
 
+  // ---- BADAN ----
   ctx.fillStyle = color;
   roundRect(-26, -118, 52, 62, 8);
   ctx.fill();
 
+  // ---- LENGAN ----
   ctx.fillStyle = shade(color, -15);
   const armY = -108;
 
   if (flags.isBlock) {
     ctx.fillRect(facing === 1 ? 2 : -34, armY + 6, 32, 14);
     ctx.fillRect(facing === 1 ? -10 : -22, armY + 18, 32, 14);
-  } else if (flags.attackLimb === 'hand') {
-    const punchLen = 46;
+  } else if (isPunching) {
+    const punchLen = 20 + 36 * ext;
     if (facing === 1) {
       ctx.fillRect(20, armY, punchLen, 16);
     } else {
@@ -863,11 +938,24 @@ function drawBody(ox, oy, color, facing, pose, flags) {
       ctx.fillRect(14, armY + 12, 16, 24);
     }
   } else {
-    const frontArmX = facing === 1 ? 20 : -20 - pose.armSpread;
-    ctx.fillRect(frontArmX, armY, pose.armSpread, 14);
+    let frontArmX, frontArmW;
+    if (isKicking) {
+      frontArmX = facing === 1 ? -40 : 20;
+      frontArmW = 24;
+    } else {
+      frontArmX = facing === 1 ? 20 : -20 - pose.armSpread;
+      frontArmW = pose.armSpread;
+    }
+    ctx.fillRect(frontArmX, armY, frontArmW, 14);
     ctx.fillRect(facing === 1 ? -40 : 40 - 16, armY + 14, 16, 26);
   }
 
+  // ---- KAKI MENENDANG ----
+  if (isKicking) {
+    drawKickLeg(dir, ext, flags.isCrouch, flags.isAir, color, flags.attackActive);
+  }
+
+  // ---- KEPALA ----
   ctx.fillStyle = '#fdbcb4';
   ctx.beginPath();
   ctx.arc(pose.headTilt || 0, -140, 22, 0, Math.PI * 2);
@@ -890,6 +978,81 @@ function drawBody(ox, oy, color, facing, pose, flags) {
   }
 
   ctx.restore();
+}
+
+function drawKickLeg(dir, ext, isCrouch, isAir, color, isActive) {
+  const hipX = 0;
+  const hipY = -60;
+
+  let footX, footY, kneeLiftY;
+
+  if (isCrouch) {
+    footX = dir * (15 + 75 * ext);
+    footY = -15 - 8 * ext;
+    kneeLiftY = -8 * ext;
+  } else if (isAir) {
+    footX = dir * (20 + 80 * ext);
+    footY = -30 - 5 * ext;
+    kneeLiftY = 5 * ext;
+  } else {
+    footX = dir * (15 + 85 * ext);
+    footY = -55 - 25 * ext;
+    kneeLiftY = -15 * (1 - ext) + 10 * ext;
+  }
+
+  const kneeX = hipX + (footX - hipX) * 0.5;
+  const kneeY = hipY + (footY - hipY) * 0.5 + kneeLiftY;
+
+  // Motion trail
+  if (ext > 0.5) {
+    const trailAlpha = (ext - 0.5) / 0.5 * 0.45;
+    ctx.strokeStyle = 'rgba(255,255,180,' + trailAlpha + ')';
+    ctx.lineWidth = 22;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    const trailBackX = footX * 0.55;
+    const trailBackY = footY + 15;
+    ctx.moveTo(trailBackX, trailBackY);
+    ctx.lineTo(footX, footY);
+    ctx.stroke();
+  }
+
+  // Kaki (paha + betis)
+  ctx.strokeStyle = shade(color, -20);
+  ctx.lineWidth = 15;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(hipX, hipY);
+  ctx.lineTo(kneeX, kneeY);
+  ctx.lineTo(footX, footY);
+  ctx.stroke();
+
+  // Highlight
+  ctx.strokeStyle = shade(color, 20);
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(hipX, hipY - 2);
+  ctx.lineTo(kneeX, kneeY - 2);
+  ctx.lineTo(footX, footY - 2);
+  ctx.stroke();
+
+  // Telapak kaki
+  const footAngle = Math.atan2(footY - kneeY, footX - kneeX);
+  ctx.save();
+  ctx.translate(footX, footY);
+  ctx.rotate(footAngle);
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillRect(-2, -7, 20 * dir, 14);
+  ctx.restore();
+
+  // Efek impact
+  if (isActive && ext > 0.9) {
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.beginPath();
+    ctx.arc(footX, footY, 8, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 function shade(hex, pct) {
@@ -960,7 +1123,11 @@ function init() {
 
     if (UI.btnStart) {
       UI.btnStart.addEventListener('click', () => {
-        if (selectedP1 && selectedP2) { audio.menuClick(); startMatch(); }
+        if (singlePick) {
+          if (selectedP1) { audio.menuClick(); startMatch(); }
+        } else {
+          if (selectedP1 && selectedP2) { audio.menuClick(); startMatch(); }
+        }
       });
     }
     if (UI.btnBack) {
