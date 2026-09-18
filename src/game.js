@@ -1,6 +1,5 @@
 /* ============================================================
    FIGHTER KONOHA — Main Game Loop
-   Imports: config, input, characters, fighter, audio
    ============================================================ */
 
 import { CFG, CONTROLS, CONTROLS_LABELS, KEY_DISPLAY } from './config.js';
@@ -9,7 +8,6 @@ import { CHARACTERS, ROSTER_ORDER } from './characters.js';
 import { Fighter } from './fighter.js';
 import { AudioManager } from './audio.js';
 
-/* ---------- GLOBAL ERROR HANDLER ---------- */
 window.addEventListener('error', (e) => {
   console.error('[FK] Error:', e.message, 'at', e.filename + ':' + e.lineno);
   let box = document.getElementById('fatal-error');
@@ -24,7 +22,6 @@ window.addEventListener('error', (e) => {
 
 console.log('[FK] script loaded');
 
-/* ---------- UI REFS ---------- */
 const $ = (id) => document.getElementById(id);
 
 const UI = {
@@ -61,7 +58,6 @@ const UI = {
   statDamage:   $('stat-damage'),
   statCoin:     $('stat-coin'),
   p2PanelLabel: $('p2-panel-label'),
-  // Pengaturan
   optMaster:    $('opt-master'),
   optSfx:       $('opt-sfx'),
   optMusic:     $('opt-music'),
@@ -70,7 +66,6 @@ const UI = {
   settingsBack: $('settings-back')
 };
 
-/* ---------- UI FUNCTIONS ---------- */
 function showScreen(id) {
   document.querySelectorAll('.screen').forEach((s) => s.classList.remove('active'));
   const el = $(id);
@@ -101,11 +96,9 @@ function announce(text) {
   UI.announcement.classList.add('show');
 }
 
-// Expose ke fighter.js
 window.FK_announce = announce;
 window.FK_toast = toast;
 
-/* ---------- AUDIO ---------- */
 const audio = new AudioManager();
 window.FK_sfx = audio;
 
@@ -117,7 +110,6 @@ function unlockAudioOnce() {
 window.addEventListener('pointerdown', unlockAudioOnce);
 window.addEventListener('keydown', unlockAudioOnce);
 
-/* ---------- GAME STATE ---------- */
 let input = null;
 let p1 = null, p2 = null;
 let canvas = null, ctx = null;
@@ -125,15 +117,14 @@ let gameState = 'loading';
 let selectedP1 = null, selectedP2 = null, selectedMode = null;
 let hitstop = 0, screenShake = 0, clash = null;
 let lastTime = 0;
-let rafId = null;               // <-- guard untuk mencegah loop ganda
+let rafId = null;
 let roundTimer = CFG.ROUND_TIME;
 let timerAccum = 0;
 let roundActive = false;
 let coins = 0;
-let settingsReturn = null;      // 'menu' | 'pause' — layar mana yang dituju saat menutup Pengaturan
-let bgPattern = null;           // latar belakang di-cache jadi offscreen canvas
+let settingsReturn = null;
+let bgPattern = null;
 
-/* ---------- LOADING ---------- */
 function runLoading() {
   const steps = [
     { pct: 20,  text: 'Memuat konfigurasi...' },
@@ -160,7 +151,6 @@ function runLoading() {
   setTimeout(tick, 300);
 }
 
-/* ---------- MENU ---------- */
 function initMenu() {
   document.querySelectorAll('.menu-btn[data-mode]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -253,7 +243,6 @@ function handleOverlayAction(action) {
   }
 }
 
-/* ---------- PENGATURAN (audio + info tombol) ---------- */
 function initSettingsUI() {
   if (UI.optMaster) {
     UI.optMaster.value = Math.round(audio.settings.master * 100);
@@ -319,7 +308,6 @@ function closeSettings() {
   settingsReturn = null;
 }
 
-/* ---------- CHARACTER SELECT ---------- */
 function openCharacterSelect(mode) {
   selectedMode = mode;
   selectedP1 = null;
@@ -413,7 +401,6 @@ function updateSelectUI() {
   if (UI.btnStart) UI.btnStart.disabled = !(selectedP1 && selectedP2);
 }
 
-/* ---------- MATCH ---------- */
 function startMatch() {
   showScreen('game-stage');
   canvas = $('game');
@@ -448,14 +435,11 @@ function startMatch() {
     roundActive = true;
   }, 1300);
 
-  // Cegah loop ganda: batalkan chain lama (kalau masih hidup dari
-  // state 'result'/'paused' sebelumnya) sebelum memulai yang baru.
   if (rafId !== null) cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(loop);
   console.log('[FK] match started:', c1.name, 'vs', c2.name);
 }
 
-/* ---------- COLLISION ---------- */
 function overlap(a, b) {
   return a.x < b.x + b.w && a.x + a.w > b.x &&
          a.y < b.y + b.h && a.y + a.h > b.y;
@@ -533,7 +517,6 @@ function playHitSfx(move, blocked) {
   else audio.hitLight();
 }
 
-/* ---------- UPDATE ---------- */
 function update() {
   input.update();
   if (gameState !== 'fighting') return;
@@ -609,14 +592,12 @@ function endRound() {
   }, 1200);
 }
 
-/* ---------- LATAR BELAKANG (digambar sekali, di-cache) ---------- */
 function buildBackground() {
   const off = document.createElement('canvas');
   off.width = CFG.W;
   off.height = CFG.H;
   const c = off.getContext('2d');
 
-  // langit senja
   const sky = c.createLinearGradient(0, 0, 0, CFG.GROUND);
   sky.addColorStop(0, '#1a1440');
   sky.addColorStop(0.55, '#3a2a6e');
@@ -624,7 +605,6 @@ function buildBackground() {
   c.fillStyle = sky;
   c.fillRect(0, 0, CFG.W, CFG.GROUND);
 
-  // matahari/bulan parodi
   const sunGrad = c.createRadialGradient(CFG.W * 0.78, 130, 10, CFG.W * 0.78, 130, 110);
   sunGrad.addColorStop(0, 'rgba(255,210,120,0.9)');
   sunGrad.addColorStop(1, 'rgba(255,210,120,0)');
@@ -635,7 +615,6 @@ function buildBackground() {
   c.arc(CFG.W * 0.78, 130, 46, 0, Math.PI * 2);
   c.fill();
 
-  // gunung jauh
   c.fillStyle = '#241a4a';
   c.beginPath();
   c.moveTo(0, CFG.GROUND);
@@ -651,7 +630,6 @@ function buildBackground() {
   c.closePath();
   c.fill();
 
-  // siluet gedung "kota" dengan jendela menyala
   c.fillStyle = '#160f30';
   let bx = -20;
   let seed = 7;
@@ -661,7 +639,6 @@ function buildBackground() {
     const bh = 90 + rnd() * 170;
     const by = CFG.GROUND - bh;
     c.fillRect(bx, by, bw, bh);
-    // jendela
     c.fillStyle = 'rgba(255,210,120,0.55)';
     for (let wy = by + 12; wy < CFG.GROUND - 12; wy += 20) {
       for (let wx = bx + 8; wx < bx + bw - 8; wx += 16) {
@@ -672,14 +649,12 @@ function buildBackground() {
     bx += bw + 14;
   }
 
-  // panggung / lantai arena
   const floorGrad = c.createLinearGradient(0, CFG.GROUND, 0, CFG.H);
   floorGrad.addColorStop(0, '#4a3320');
   floorGrad.addColorStop(1, '#241708');
   c.fillStyle = floorGrad;
   c.fillRect(0, CFG.GROUND, CFG.W, CFG.H - CFG.GROUND);
 
-  // garis ubin panggung
   c.strokeStyle = 'rgba(0,0,0,0.35)';
   c.lineWidth = 2;
   for (let lx = 0; lx < CFG.W; lx += 64) {
@@ -699,7 +674,6 @@ function buildBackground() {
   return off;
 }
 
-/* ---------- RENDER ---------- */
 function render() {
   if (!ctx) return;
   ctx.clearRect(0, 0, CFG.W, CFG.H);
@@ -743,14 +717,12 @@ function drawFighter(f) {
 
   ctx.save();
 
-  // bayangan
   ctx.fillStyle = 'rgba(0,0,0,0.35)';
   ctx.beginPath();
   ctx.ellipse(cx, CFG.GROUND + 4, 34, 10, 0, 0, Math.PI * 2);
   ctx.fill();
 
   if (isKO) {
-    // rebah
     ctx.translate(cx, CFG.GROUND - 14);
     ctx.rotate(facing === 1 ? -Math.PI / 2 : Math.PI / 2);
     drawBody(0, 0, color, facing, { legSpread: 6, armSpread: 30, headTilt: 20 });
@@ -760,7 +732,6 @@ function drawFighter(f) {
 
   ctx.translate(cx, cy);
 
-  // lean saat hitstun / jump / attack
   let lean = 0;
   if (isHit) lean = -facing * 8;
   if (!grounded) lean = facing * 4;
@@ -777,10 +748,8 @@ function drawFighter(f) {
     lean
   };
 
-  ctx.fillStyle = blink ? '#0ff' : color;
   drawBody(0, 0, blink ? '#0ff' : color, facing, pose, { isBlock, isAttack, isHit });
 
-  // label nama
   ctx.fillStyle = '#fff';
   ctx.font = 'bold 14px sans-serif';
   ctx.textAlign = 'center';
@@ -794,7 +763,6 @@ function drawFighter(f) {
 
   ctx.restore();
 
-  // kotak hitbox aktif (debug/visual efek serang)
   const hb = f.activeHitbox;
   if (hb) {
     ctx.strokeStyle = 'rgba(255,60,60,0.85)';
@@ -803,8 +771,6 @@ function drawFighter(f) {
   }
 }
 
-// Menggambar tubuh humanoid sederhana (kepala, badan, lengan, kaki)
-// pada origin (0,0) = titik kaki di tanah, menghadap arah `facing`.
 function drawBody(ox, oy, color, facing, pose, flags) {
   flags = flags || {};
   const lean = pose.lean || 0;
@@ -812,21 +778,17 @@ function drawBody(ox, oy, color, facing, pose, flags) {
   ctx.translate(ox, oy);
   ctx.transform(1, 0, 0, 1, lean * 0.15, 0);
 
-  // kaki
   ctx.fillStyle = shade(color, -30);
   ctx.fillRect(-pose.legSpread - 8, -60, 14, 60);
   ctx.fillRect(pose.legSpread - 6, -60, 14, 60);
 
-  // badan
   ctx.fillStyle = color;
   roundRect(-26, -118, 52, 62, 8);
   ctx.fill();
 
-  // lengan
   ctx.fillStyle = shade(color, -15);
   const armY = -108;
   if (flags.isBlock) {
-    // lengan menyilang di depan dada
     ctx.fillRect(facing === 1 ? 2 : -34, armY + 6, 32, 14);
     ctx.fillRect(facing === 1 ? -10 : -22, armY + 18, 32, 14);
   } else {
@@ -835,23 +797,19 @@ function drawBody(ox, oy, color, facing, pose, flags) {
     ctx.fillRect(facing === 1 ? -40 : 40 - 16, armY + 14, 16, 26);
   }
 
-  // kepala
   ctx.fillStyle = '#fdbcb4';
   ctx.beginPath();
   ctx.arc(pose.headTilt || 0, -140, 22, 0, Math.PI * 2);
   ctx.fill();
 
-  // rambut sederhana
   ctx.fillStyle = shade(color, -60);
   ctx.beginPath();
   ctx.arc((pose.headTilt || 0), -148, 22, Math.PI, 2 * Math.PI);
   ctx.fill();
 
-  // mata (arah hadap)
   ctx.fillStyle = '#000';
   ctx.fillRect((pose.headTilt || 0) + (facing === 1 ? 8 : -13), -144, 5, 5);
 
-  // ekspresi kena hit
   if (flags.isHit) {
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 2;
@@ -905,7 +863,6 @@ function drawClash() {
   ctx.textAlign = 'left';
 }
 
-/* ---------- LOOP ---------- */
 function loop(t) {
   if (gameState === 'result' || gameState === 'paused' || gameState === 'settings') {
     render();
@@ -923,7 +880,6 @@ function loop(t) {
   rafId = requestAnimationFrame(loop);
 }
 
-/* ---------- INIT ---------- */
 function init() {
   try {
     input = new Input();
