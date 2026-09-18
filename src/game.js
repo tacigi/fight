@@ -1,12 +1,13 @@
 /* ============================================================
    FIGHTER KONOHA — Main Game Loop
-   Imports: config, input, characters, fighter
+   Imports: config, input, characters, fighter, audio
    ============================================================ */
 
-import { CFG } from './config.js';
+import { CFG, CONTROLS, CONTROLS_LABELS, KEY_DISPLAY } from './config.js';
 import { Input } from './input.js';
 import { CHARACTERS, ROSTER_ORDER } from './characters.js';
 import { Fighter } from './fighter.js';
+import { AudioManager } from './audio.js';
 
 /* ---------- GLOBAL ERROR HANDLER ---------- */
 window.addEventListener('error', (e) => {
@@ -59,7 +60,14 @@ const UI = {
   statCombo:    $('stat-combo'),
   statDamage:   $('stat-damage'),
   statCoin:     $('stat-coin'),
-  p2PanelLabel: $('p2-panel-label')
+  p2PanelLabel: $('p2-panel-label'),
+  // Pengaturan
+  optMaster:    $('opt-master'),
+  optSfx:       $('opt-sfx'),
+  optMusic:     $('opt-music'),
+  optMusicOn:   $('opt-music-on'),
+  controlsTable:$('controls-table'),
+  settingsBack: $('settings-back')
 };
 
 /* ---------- UI FUNCTIONS ---------- */
@@ -97,6 +105,18 @@ function announce(text) {
 window.FK_announce = announce;
 window.FK_toast = toast;
 
+/* ---------- AUDIO ---------- */
+const audio = new AudioManager();
+window.FK_sfx = audio;
+
+function unlockAudioOnce() {
+  audio.unlock();
+  window.removeEventListener('pointerdown', unlockAudioOnce);
+  window.removeEventListener('keydown', unlockAudioOnce);
+}
+window.addEventListener('pointerdown', unlockAudioOnce);
+window.addEventListener('keydown', unlockAudioOnce);
+
 /* ---------- GAME STATE ---------- */
 let input = null;
 let p1 = null, p2 = null;
@@ -105,10 +125,13 @@ let gameState = 'loading';
 let selectedP1 = null, selectedP2 = null, selectedMode = null;
 let hitstop = 0, screenShake = 0, clash = null;
 let lastTime = 0;
+let rafId = null;               // <-- guard untuk mencegah loop ganda
 let roundTimer = CFG.ROUND_TIME;
 let timerAccum = 0;
 let roundActive = false;
 let coins = 0;
+let settingsReturn = null;      // 'menu' | 'pause' — layar mana yang dituju saat menutup Pengaturan
+let bgPattern = null;           // latar belakang di-cache jadi offscreen canvas
 
 /* ---------- LOADING ---------- */
 function runLoading() {
@@ -141,6 +164,7 @@ function runLoading() {
 function initMenu() {
   document.querySelectorAll('.menu-btn[data-mode]').forEach((btn) => {
     btn.addEventListener('click', () => {
+      audio.menuClick();
       const mode = btn.dataset.mode;
       if (mode === 'toko' || mode === 'catatan') {
         toast('Fitur ' + (mode === 'toko' ? 'Toko Kemeja' : 'Buku Catatan') + ' segera hadir!');
@@ -151,16 +175,35 @@ function initMenu() {
   });
 
   document.querySelectorAll('.overlay .menu-btn[data-action]').forEach((btn) => {
-    btn.addEventListener('click', () => handleOverlayAction(btn.dataset.action));
+    btn.addEventListener('click', () => {
+      audio.menuClick();
+      handleOverlayAction(btn.dataset.action);
+    });
   });
 
   const pauseBtn = $('pause-btn');
   if (pauseBtn) {
     pauseBtn.addEventListener('click', () => {
       if (gameState === 'fighting') {
+        audio.menuClick();
         gameState = 'paused';
         showOverlay('pause-menu');
       }
+    });
+  }
+
+  const btnMenuSettings = $('btn-open-settings');
+  if (btnMenuSettings) {
+    btnMenuSettings.addEventListener('click', () => {
+      audio.menuClick();
+      openSettings('menu');
+    });
+  }
+  const btnPauseSettings = $('btn-pause-settings');
+  if (btnPauseSettings) {
+    btnPauseSettings.addEventListener('click', () => {
+      audio.menuClick();
+      openSettings('pause');
     });
   }
 
@@ -171,8 +214,12 @@ function initMenu() {
     } else if (e.code === 'Escape' && gameState === 'paused') {
       showOverlay(null);
       gameState = 'fighting';
+    } else if (e.code === 'Escape' && gameState === 'settings') {
+      closeSettings();
     }
   });
+
+  initSettingsUI();
 }
 
 function handleOverlayAction(action) {
@@ -204,6 +251,72 @@ function handleOverlayAction(action) {
       gameState = 'menu';
       break;
   }
+}
+
+/* ---------- PENGATURAN (audio + info tombol) ---------- */
+function initSettingsUI() {
+  if (UI.optMaster) {
+    UI.optMaster.value = Math.round(audio.settings.master * 100);
+    UI.optMaster.addEventListener('input', (e) => audio.setMaster(e.target.value / 100));
+  }
+  if (UI.optSfx) {
+    UI.optSfx.value = Math.round(audio.settings.sfx * 100);
+    UI.optSfx.addEventListener('input', (e) => { audio.setSfx(e.target.value / 100); audio.hitLight(); });
+  }
+  if (UI.optMusic) {
+    UI.optMusic.value = Math.round(audio.settings.music * 100);
+    UI.optMusic.addEventListener('input', (e) => audio.setMusic(e.target.value / 100));
+  }
+  if (UI.optMusicOn) {
+    UI.optMusicOn.checked = audio.settings.musicOn;
+    UI.optMusicOn.addEventListener('change', (e) => audio.setMusicOn(e.target.checked));
+  }
+  if (UI.settingsBack) {
+    UI.settingsBack.addEventListener('click', () => { audio.menuBack(); closeSettings(); });
+  }
+  renderControlsTable();
+}
+
+function renderControlsTable() {
+  if (!UI.controlsTable) return;
+  const rowsHtml = CONTROLS_LABELS.map((row) => {
+    const p1Keys = CONTROLS.p1[row.key].map((c) => KEY_DISPLAY[c] || c).join(' / ');
+    const p2Keys = CONTROLS.p2[row.key].map((c) => KEY_DISPLAY[c] || c).join(' / ');
+    return (
+      '<div class="ctrl-row">' +
+        '<span class="ctrl-label">' + row.label + '</span>' +
+        '<span class="ctrl-key ctrl-p1">' + p1Keys + '</span>' +
+        '<span class="ctrl-key ctrl-p2">' + p2Keys + '</span>' +
+      '</div>'
+    );
+  }).join('');
+  UI.controlsTable.innerHTML =
+    '<div class="ctrl-row ctrl-head">' +
+      '<span class="ctrl-label">Aksi</span>' +
+      '<span class="ctrl-key">Player 1</span>' +
+      '<span class="ctrl-key">Player 2</span>' +
+    '</div>' + rowsHtml;
+}
+
+function openSettings(from) {
+  settingsReturn = from;
+  gameState = 'settings';
+  if (UI.optMaster) UI.optMaster.value = Math.round(audio.settings.master * 100);
+  if (UI.optSfx) UI.optSfx.value = Math.round(audio.settings.sfx * 100);
+  if (UI.optMusic) UI.optMusic.value = Math.round(audio.settings.music * 100);
+  if (UI.optMusicOn) UI.optMusicOn.checked = audio.settings.musicOn;
+  showOverlay('settings-menu');
+}
+
+function closeSettings() {
+  if (settingsReturn === 'pause') {
+    showOverlay('pause-menu');
+    gameState = 'paused';
+  } else {
+    showOverlay(null);
+    gameState = 'menu';
+  }
+  settingsReturn = null;
 }
 
 /* ---------- CHARACTER SELECT ---------- */
@@ -239,7 +352,7 @@ function renderRoster() {
       '<span class="rc-badge" style="display:none;">P1</span>' +
       '<span class="rc-avatar">' + c.avatar + '</span>' +
       '<span class="rc-name">' + c.name + '</span>';
-    card.addEventListener('click', () => pickCharacter(id));
+    card.addEventListener('click', () => { audio.menuClick(); pickCharacter(id); });
     UI.roster.appendChild(card);
   });
 }
@@ -306,35 +419,13 @@ function startMatch() {
   canvas = $('game');
   if (!canvas) { console.error('[FK] Canvas #game tidak ditemukan'); return; }
   ctx = canvas.getContext('2d');
+  if (!bgPattern) bgPattern = buildBackground();
 
   const c1 = CHARACTERS[selectedP1] || CHARACTERS.praroro;
   const c2 = CHARACTERS[selectedP2] || CHARACTERS.fufu;
 
-  p1 = new Fighter(c1, 400, 1, {
-    left:     ['KeyA'],
-    right:    ['KeyD'],
-    up:       ['KeyW'],
-    down:     ['KeyS'],
-    light:    ['KeyJ'],
-    heavy:    ['KeyK'],
-    special:  ['KeyL'],
-    ultimate: ['KeyU'],
-    taunt:    ['KeyT'],
-    striker:  ['KeyI']
-  });
-
-  p2 = new Fighter(c2, 880, -1, {
-    left:     ['ArrowLeft'],
-    right:    ['ArrowRight'],
-    up:       ['ArrowUp'],
-    down:     ['ArrowDown'],
-    light:    ['Numpad1', 'Comma'],
-    heavy:    ['Numpad2', 'Period'],
-    special:  ['Numpad3', 'Slash'],
-    ultimate: ['Numpad4', 'Quote'],
-    taunt:    ['Numpad5', 'BracketLeft'],
-    striker:  ['Numpad6', 'BracketRight']
-  });
+  p1 = new Fighter(c1, 400, 1, CONTROLS.p1);
+  p2 = new Fighter(c2, 880, -1, CONTROLS.p2);
 
   if (UI.p1Name) UI.p1Name.textContent = c1.name;
   if (UI.p2Name) UI.p2Name.textContent = c2.name;
@@ -350,11 +441,17 @@ function startMatch() {
 
   gameState = 'fighting';
   announce('ROUND 1');
+  audio.roundStart();
   setTimeout(() => {
     announce('FIGHT!');
+    audio.roundStart();
     roundActive = true;
   }, 1300);
-  requestAnimationFrame(loop);
+
+  // Cegah loop ganda: batalkan chain lama (kalau masih hidup dari
+  // state 'result'/'paused' sebelumnya) sebelum memulai yang baru.
+  if (rafId !== null) cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(loop);
   console.log('[FK] match started:', c1.name, 'vs', c2.name);
 }
 
@@ -373,8 +470,8 @@ function startClash() {
 function updateClash() {
   if (clash.resolved) return;
   clash.timer--;
-  if (input.consume('KeyJ')) clash.p1++;
-  if (input.consume(['Numpad1', 'Comma'])) clash.p2++;
+  if (input.consume('KeyJ')) { clash.p1++; audio.clashHit(); }
+  if (input.consume(['Numpad1', 'Comma'])) { clash.p2++; audio.clashHit(); }
   if (clash.p1 >= clash.target) resolveClash(1);
   else if (clash.p2 >= clash.target) resolveClash(2);
   else if (clash.timer <= 0) {
@@ -389,10 +486,12 @@ function resolveClash(winner) {
     p2.stunTimer = CFG.STUN_CLASH;
     p1.gauge = Math.min(CFG.MAX_GAUGE, p1.gauge + 20);
     announce('P1 MENANG DEBAT!');
+    audio.special();
   } else if (winner === 2) {
     p1.stunTimer = CFG.STUN_CLASH;
     p2.gauge = Math.min(CFG.MAX_GAUGE, p2.gauge + 20);
     announce('P2 MENANG DEBAT!');
+    audio.special();
   } else {
     announce('SERI!');
   }
@@ -412,16 +511,26 @@ function checkCollisions() {
   }
   if (h1HitsH2) {
     p1.hitDone = true;
-    p2.takeHit(h1.move, p1, p2.blocking);
+    const blocked = p2.blocking;
+    p2.takeHit(h1.move, p1, blocked);
     hitstop = CFG.HITSTOP;
     screenShake = 6;
+    playHitSfx(h1.move, blocked);
   }
   if (h2HitsH1) {
     p2.hitDone = true;
-    p1.takeHit(h2.move, p2, p1.blocking);
+    const blocked = p1.blocking;
+    p1.takeHit(h2.move, p2, blocked);
     hitstop = CFG.HITSTOP;
     screenShake = 6;
+    playHitSfx(h2.move, blocked);
   }
+}
+
+function playHitSfx(move, blocked) {
+  if (blocked) { audio.hitBlock(); return; }
+  if (move.type === 'heavy' || move.type === 'ultimate') audio.hitHeavy();
+  else audio.hitLight();
 }
 
 /* ---------- UPDATE ---------- */
@@ -500,6 +609,96 @@ function endRound() {
   }, 1200);
 }
 
+/* ---------- LATAR BELAKANG (digambar sekali, di-cache) ---------- */
+function buildBackground() {
+  const off = document.createElement('canvas');
+  off.width = CFG.W;
+  off.height = CFG.H;
+  const c = off.getContext('2d');
+
+  // langit senja
+  const sky = c.createLinearGradient(0, 0, 0, CFG.GROUND);
+  sky.addColorStop(0, '#1a1440');
+  sky.addColorStop(0.55, '#3a2a6e');
+  sky.addColorStop(1, '#6a3a5e');
+  c.fillStyle = sky;
+  c.fillRect(0, 0, CFG.W, CFG.GROUND);
+
+  // matahari/bulan parodi
+  const sunGrad = c.createRadialGradient(CFG.W * 0.78, 130, 10, CFG.W * 0.78, 130, 110);
+  sunGrad.addColorStop(0, 'rgba(255,210,120,0.9)');
+  sunGrad.addColorStop(1, 'rgba(255,210,120,0)');
+  c.fillStyle = sunGrad;
+  c.fillRect(0, 0, CFG.W, CFG.GROUND);
+  c.fillStyle = '#ffe6a0';
+  c.beginPath();
+  c.arc(CFG.W * 0.78, 130, 46, 0, Math.PI * 2);
+  c.fill();
+
+  // gunung jauh
+  c.fillStyle = '#241a4a';
+  c.beginPath();
+  c.moveTo(0, CFG.GROUND);
+  c.lineTo(0, 340);
+  c.lineTo(180, 220);
+  c.lineTo(360, 320);
+  c.lineTo(560, 200);
+  c.lineTo(760, 310);
+  c.lineTo(960, 240);
+  c.lineTo(1120, 330);
+  c.lineTo(CFG.W, 260);
+  c.lineTo(CFG.W, CFG.GROUND);
+  c.closePath();
+  c.fill();
+
+  // siluet gedung "kota" dengan jendela menyala
+  c.fillStyle = '#160f30';
+  let bx = -20;
+  let seed = 7;
+  function rnd() { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; }
+  while (bx < CFG.W + 20) {
+    const bw = 50 + rnd() * 70;
+    const bh = 90 + rnd() * 170;
+    const by = CFG.GROUND - bh;
+    c.fillRect(bx, by, bw, bh);
+    // jendela
+    c.fillStyle = 'rgba(255,210,120,0.55)';
+    for (let wy = by + 12; wy < CFG.GROUND - 12; wy += 20) {
+      for (let wx = bx + 8; wx < bx + bw - 8; wx += 16) {
+        if (rnd() > 0.45) c.fillRect(wx, wy, 6, 8);
+      }
+    }
+    c.fillStyle = '#160f30';
+    bx += bw + 14;
+  }
+
+  // panggung / lantai arena
+  const floorGrad = c.createLinearGradient(0, CFG.GROUND, 0, CFG.H);
+  floorGrad.addColorStop(0, '#4a3320');
+  floorGrad.addColorStop(1, '#241708');
+  c.fillStyle = floorGrad;
+  c.fillRect(0, CFG.GROUND, CFG.W, CFG.H - CFG.GROUND);
+
+  // garis ubin panggung
+  c.strokeStyle = 'rgba(0,0,0,0.35)';
+  c.lineWidth = 2;
+  for (let lx = 0; lx < CFG.W; lx += 64) {
+    c.beginPath();
+    c.moveTo(lx, CFG.GROUND);
+    c.lineTo(lx - 40, CFG.H);
+    c.stroke();
+  }
+
+  c.strokeStyle = '#8a6a3a';
+  c.lineWidth = 4;
+  c.beginPath();
+  c.moveTo(0, CFG.GROUND);
+  c.lineTo(CFG.W, CFG.GROUND);
+  c.stroke();
+
+  return off;
+}
+
 /* ---------- RENDER ---------- */
 function render() {
   if (!ctx) return;
@@ -515,21 +714,7 @@ function render() {
     if (screenShake < 0.5) screenShake = 0;
   }
 
-  const grad = ctx.createLinearGradient(0, 0, 0, CFG.GROUND);
-  grad.addColorStop(0, '#1a1a3e');
-  grad.addColorStop(1, '#4a3a6e');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, CFG.W, CFG.GROUND);
-
-  ctx.fillStyle = '#3a2818';
-  ctx.fillRect(0, CFG.GROUND, CFG.W, CFG.H - CFG.GROUND);
-
-  ctx.strokeStyle = '#6a4a2a';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.moveTo(0, CFG.GROUND);
-  ctx.lineTo(CFG.W, CFG.GROUND);
-  ctx.stroke();
+  if (bgPattern) ctx.drawImage(bgPattern, 0, 0);
 
   if (p1 && p2) {
     drawFighter(p1);
@@ -542,40 +727,159 @@ function render() {
 }
 
 function drawFighter(f) {
+  const t = f.frame;
+  const grounded = f.y >= CFG.GROUND;
+  const walking = f.state === 'walk';
+  const bob = grounded ? Math.sin(t * (walking ? 0.35 : 0.08)) * (walking ? 5 : 2) : 0;
+  const facing = f.facing;
+  const cx = f.x;
+  const cy = f.y - bob;
+  const color = f.data.color || '#e63946';
+  const isKO = f.state === 'ko';
+  const isHit = f.hitstun > 0 || f.stunTimer > 0;
+  const isBlock = f.blocking && grounded;
+  const isAttack = f.state === 'attack';
+  const blink = f.invincible > 0 && Math.floor(t / 3) % 2 === 0;
+
+  ctx.save();
+
+  // bayangan
   ctx.fillStyle = 'rgba(0,0,0,0.35)';
   ctx.beginPath();
-  ctx.ellipse(f.x, CFG.GROUND, 32, 9, 0, 0, Math.PI * 2);
+  ctx.ellipse(cx, CFG.GROUND + 4, 34, 10, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  const blink = f.invincible > 0 && Math.floor(f.frame / 3) % 2 === 0;
-  ctx.fillStyle = blink ? '#0ff' : f.data.color;
-  ctx.fillRect(f.x - 30, f.y - 110, 60, 110);
+  if (isKO) {
+    // rebah
+    ctx.translate(cx, CFG.GROUND - 14);
+    ctx.rotate(facing === 1 ? -Math.PI / 2 : Math.PI / 2);
+    drawBody(0, 0, color, facing, { legSpread: 6, armSpread: 30, headTilt: 20 });
+    ctx.restore();
+    return;
+  }
 
-  ctx.fillStyle = '#fdbcb4';
-  ctx.beginPath();
-  ctx.arc(f.x, f.y - 125, 22, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.translate(cx, cy);
 
-  ctx.fillStyle = '#222';
-  ctx.beginPath();
-  ctx.arc(f.x, f.y - 135, 22, Math.PI, 2 * Math.PI);
-  ctx.fill();
+  // lean saat hitstun / jump / attack
+  let lean = 0;
+  if (isHit) lean = -facing * 8;
+  if (!grounded) lean = facing * 4;
+  if (isAttack && f.move) {
+    const m = f.move;
+    if (f.moveFrame >= m.startup && f.moveFrame < m.startup + m.active) lean = facing * 10;
+  }
 
-  ctx.fillStyle = '#000';
-  ctx.fillRect(f.facing === 1 ? f.x + 15 : f.x - 20, f.y - 130, 5, 5);
+  const legPhase = walking ? Math.sin(t * 0.35) : 0;
+  const pose = {
+    legSpread: grounded ? (walking ? 14 + legPhase * 10 : (isBlock ? 6 : 10)) : 4,
+    armSpread: isBlock ? 4 : (isAttack ? 26 : 16),
+    headTilt: isHit ? -facing * 10 : 0,
+    lean
+  };
 
+  ctx.fillStyle = blink ? '#0ff' : color;
+  drawBody(0, 0, blink ? '#0ff' : color, facing, pose, { isBlock, isAttack, isHit });
+
+  // label nama
   ctx.fillStyle = '#fff';
   ctx.font = 'bold 14px sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText(f.data.name, f.x, f.y - 160);
+  ctx.shadowColor = '#000';
+  ctx.shadowBlur = 3;
+  ctx.fillText(f.data.name, 0, -168);
+  ctx.font = '18px sans-serif';
+  ctx.fillText(f.data.avatar || '', 0, -190);
+  ctx.shadowBlur = 0;
   ctx.textAlign = 'left';
 
+  ctx.restore();
+
+  // kotak hitbox aktif (debug/visual efek serang)
   const hb = f.activeHitbox;
   if (hb) {
-    ctx.strokeStyle = 'red';
+    ctx.strokeStyle = 'rgba(255,60,60,0.85)';
     ctx.lineWidth = 2;
     ctx.strokeRect(hb.x, hb.y, hb.w, hb.h);
   }
+}
+
+// Menggambar tubuh humanoid sederhana (kepala, badan, lengan, kaki)
+// pada origin (0,0) = titik kaki di tanah, menghadap arah `facing`.
+function drawBody(ox, oy, color, facing, pose, flags) {
+  flags = flags || {};
+  const lean = pose.lean || 0;
+  ctx.save();
+  ctx.translate(ox, oy);
+  ctx.transform(1, 0, 0, 1, lean * 0.15, 0);
+
+  // kaki
+  ctx.fillStyle = shade(color, -30);
+  ctx.fillRect(-pose.legSpread - 8, -60, 14, 60);
+  ctx.fillRect(pose.legSpread - 6, -60, 14, 60);
+
+  // badan
+  ctx.fillStyle = color;
+  roundRect(-26, -118, 52, 62, 8);
+  ctx.fill();
+
+  // lengan
+  ctx.fillStyle = shade(color, -15);
+  const armY = -108;
+  if (flags.isBlock) {
+    // lengan menyilang di depan dada
+    ctx.fillRect(facing === 1 ? 2 : -34, armY + 6, 32, 14);
+    ctx.fillRect(facing === 1 ? -10 : -22, armY + 18, 32, 14);
+  } else {
+    const frontArmX = facing === 1 ? 20 : -20 - pose.armSpread;
+    ctx.fillRect(frontArmX, armY, pose.armSpread, 14);
+    ctx.fillRect(facing === 1 ? -40 : 40 - 16, armY + 14, 16, 26);
+  }
+
+  // kepala
+  ctx.fillStyle = '#fdbcb4';
+  ctx.beginPath();
+  ctx.arc(pose.headTilt || 0, -140, 22, 0, Math.PI * 2);
+  ctx.fill();
+
+  // rambut sederhana
+  ctx.fillStyle = shade(color, -60);
+  ctx.beginPath();
+  ctx.arc((pose.headTilt || 0), -148, 22, Math.PI, 2 * Math.PI);
+  ctx.fill();
+
+  // mata (arah hadap)
+  ctx.fillStyle = '#000';
+  ctx.fillRect((pose.headTilt || 0) + (facing === 1 ? 8 : -13), -144, 5, 5);
+
+  // ekspresi kena hit
+  if (flags.isHit) {
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc((pose.headTilt || 0) + (facing === 1 ? 8 : -13), -132, 4, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function shade(hex, pct) {
+  const num = parseInt(hex.replace('#', ''), 16);
+  let r = (num >> 16) + pct, g = ((num >> 8) & 0xff) + pct, b = (num & 0xff) + pct;
+  r = Math.max(0, Math.min(255, r));
+  g = Math.max(0, Math.min(255, g));
+  b = Math.max(0, Math.min(255, b));
+  return 'rgb(' + r + ',' + g + ',' + b + ')';
+}
+
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
 }
 
 function drawClash() {
@@ -603,20 +907,20 @@ function drawClash() {
 
 /* ---------- LOOP ---------- */
 function loop(t) {
-  if (gameState === 'result' || gameState === 'paused') {
+  if (gameState === 'result' || gameState === 'paused' || gameState === 'settings') {
     render();
-    requestAnimationFrame(loop);
+    rafId = requestAnimationFrame(loop);
     return;
   }
-  if (gameState !== 'fighting') return;
+  if (gameState !== 'fighting') { rafId = null; return; }
   if (t - lastTime < 1000 / 60) {
-    requestAnimationFrame(loop);
+    rafId = requestAnimationFrame(loop);
     return;
   }
   lastTime = t;
   update();
   render();
-  requestAnimationFrame(loop);
+  rafId = requestAnimationFrame(loop);
 }
 
 /* ---------- INIT ---------- */
@@ -629,11 +933,12 @@ function init() {
 
     if (UI.btnStart) {
       UI.btnStart.addEventListener('click', () => {
-        if (selectedP1 && selectedP2) startMatch();
+        if (selectedP1 && selectedP2) { audio.menuClick(); startMatch(); }
       });
     }
     if (UI.btnBack) {
       UI.btnBack.addEventListener('click', () => {
+        audio.menuBack();
         showScreen('main-menu');
         gameState = 'menu';
       });
