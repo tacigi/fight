@@ -12,7 +12,7 @@
 
   <div id="app">
 
-    <!-- ============ LOADING ============ -->
+    <!-- ================= LOADING SCREEN ================= -->
     <div id="loading-screen" class="screen active">
       <div class="loading-content">
         <h1 class="game-logo">FIGHTER <span>KONOHA</span></h1>
@@ -24,7 +24,7 @@
       </div>
     </div>
 
-    <!-- ============ MAIN MENU ============ -->
+    <!-- ================= MAIN MENU ================= -->
     <div id="main-menu" class="screen">
       <div class="menu-bg-grid"></div>
       <div class="menu-content">
@@ -67,12 +67,14 @@
             <span id="coin-amount">0</span>
             <span class="coin-label">Koin Rakyat</span>
           </div>
-          <p class="disclaimer">⚠️ Karya parodi satir. Semua karakter, nama, dan kejadian bersifat fiktif.</p>
+          <p class="disclaimer">
+            ⚠️ Karya parodi satir. Semua karakter, nama, dan kejadian bersifat fiktif.
+          </p>
         </footer>
       </div>
     </div>
 
-    <!-- ============ CHARACTER SELECT ============ -->
+    <!-- ================= CHARACTER SELECT ================= -->
     <div id="char-select" class="screen">
       <div class="select-header">
         <h2>PILIH KARAKTER</h2>
@@ -107,7 +109,7 @@
       </div>
     </div>
 
-    <!-- ============ GAME STAGE ============ -->
+    <!-- ================= GAME STAGE ================= -->
     <div id="game-stage" class="screen">
       <canvas id="game" width="1280" height="720"></canvas>
 
@@ -148,25 +150,9 @@
       <div class="announcement" id="announcement"></div>
 
       <button class="pause-btn" id="pause-btn">❚❚</button>
-
-      <!-- Panel kontrol P1 & P2 -->
-      <div class="controls-hint" id="controls-hint">
-        <div class="ctrl-col">
-          <strong>P1</strong>
-          <span>WASD gerak • J light • K heavy</span>
-          <span>L special • U ultimate</span>
-          <span>T taunt • I striker</span>
-        </div>
-        <div class="ctrl-col">
-          <strong>P2</strong>
-          <span>← → ↑ ↓ gerak • , light • . heavy</span>
-          <span>/ special • ' ultimate</span>
-          <span>[ taunt • ] striker</span>
-        </div>
-      </div>
     </div>
 
-    <!-- ============ PAUSE ============ -->
+    <!-- ================= PAUSE MENU ================= -->
     <div id="pause-menu" class="overlay">
       <div class="overlay-card">
         <h2>PAUSED</h2>
@@ -177,7 +163,7 @@
       </div>
     </div>
 
-    <!-- ============ RESULT ============ -->
+    <!-- ================= RESULT SCREEN ================= -->
     <div id="result-screen" class="overlay">
       <div class="overlay-card result-card">
         <h2 id="result-title">K.O.!</h2>
@@ -204,15 +190,16 @@
     </div>
 
     <div id="toast" class="toast"></div>
-    <div id="fatal-error" class="fatal-error"></div>
 
   </div>
 
-  <script src="src/game.js"></script>
+  <script type="module" src="src/game.js"></script>
+
   <noscript>
     <div style="color:white;text-align:center;padding:40px;">
-      Game ini membutuhkan JavaScript.
+      Game ini membutuhkan JavaScript. Aktifkan JavaScript di browser Anda.
     </div>
   </noscript>
+
 </body>
 </html>
