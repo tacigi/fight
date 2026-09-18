@@ -1,2 +1,2 @@
 # fight
-game ztratax
+ztratax fight

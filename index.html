@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="description" content="Fighter Konoha - Game pertarungan parodi 2D arcade" />
+  <title>Fighter Konoha — Arena Parodi Politik</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🥊</text></svg>" />
+</head>
+<body>
+
+  <!-- ================= APP WRAPPER ================= -->
+  <div id="app">
+
+    <!-- ================= LOADING SCREEN ================= -->
+    <div id="loading-screen" class="screen active">
+      <div class="loading-content">
+        <h1 class="game-logo">FIGHTER <span>KONOHA</span></h1>
+        <p class="game-tagline">Arena Parodi Politik 2D</p>
+        <div class="loading-bar">
+          <div class="loading-fill" id="loading-fill"></div>
+        </div>
+        <p class="loading-text" id="loading-text">Memuat aset...</p>
+      </div>
+    </div>
+
+    <!-- ================= MAIN MENU ================= -->
+    <div id="main-menu" class="screen">
+      <div class="menu-bg-grid"></div>
+      <div class="menu-content">
+        <header class="menu-header">
+          <h1 class="game-logo">FIGHTER <span>KONOHA</span></h1>
+          <p class="game-tagline">Pilih jalanmu. Rebut takhta Hokage Konoha.</p>
+        </header>
+
+        <nav class="menu-nav">
+          <button class="menu-btn primary" data-mode="pilpres">
+            <span class="btn-icon">🏆</span>
+            <span class="btn-label">Pilpres Mode</span>
+            <span class="btn-desc">Story / Arcade • 8 Dapil</span>
+          </button>
+
+          <button class="menu-btn" data-mode="koalisi">
+            <span class="btn-icon">⚔️</span>
+            <span class="btn-label">Koalisi Mode</span>
+            <span class="btn-desc">Versus 1v1 / 2v2</span>
+          </button>
+
+          <button class="menu-btn" data-mode="latihan">
+            <span class="btn-icon">🥋</span>
+            <span class="btn-label">Latihan Kader</span>
+            <span class="btn-desc">Training • Bebas Kombo</span>
+          </button>
+
+          <button class="menu-btn" data-mode="toko">
+            <span class="btn-icon">👕</span>
+            <span class="btn-label">Toko Kemeja</span>
+            <span class="btn-desc">Kosmetik & Skin</span>
+          </button>
+
+          <button class="menu-btn" data-mode="catatan">
+            <span class="btn-icon">📓</span>
+            <span class="btn-label">Buku Catatan Hitam</span>
+            <span class="btn-desc">Achievements</span>
+          </button>
+        </nav>
+
+        <footer class="menu-footer">
+          <div class="coin-display">
+            <span class="coin-icon">🪙</span>
+            <span id="coin-amount">0</span>
+            <span class="coin-label">Koin Rakyat</span>
+          </div>
+          <p class="disclaimer">
+            ⚠️ Karya parodi satir. Semua karakter, nama, dan kejadian bersifat fiktif.
+          </p>
+        </footer>
+      </div>
+    </div>
+
+    <!-- ================= CHARACTER SELECT ================= -->
+    <div id="char-select" class="screen">
+      <div class="select-header">
+        <h2>PILIH KARAKTER</h2>
+        <p id="select-mode-label">Pilpres Mode</p>
+      </div>
+
+      <div class="select-body">
+        <!-- P1 panel -->
+        <div class="player-panel p1-panel">
+          <h3>PLAYER 1</h3>
+          <div class="portrait-frame">
+            <div class="portrait" id="p1-portrait">?</div>
+          </div>
+          <p class="char-name" id="p1-name">—</p>
+          <p class="char-archetype" id="p1-arch">Pilih karakter</p>
+        </div>
+
+        <!-- Roster grid -->
+        <div class="roster" id="roster">
+          <!-- diisi via JS -->
+        </div>
+
+        <!-- P2 panel -->
+        <div class="player-panel p2-panel">
+          <h3 id="p2-panel-label">PLAYER 2</h3>
+          <div class="portrait-frame">
+            <div class="portrait" id="p2-portrait">?</div>
+          </div>
+          <p class="char-name" id="p2-name">—</p>
+          <p class="char-archetype" id="p2-arch">Pilih karakter</p>
+        </div>
+      </div>
+
+      <div class="select-footer">
+        <button class="btn-back" id="btn-back-menu">← Kembali</button>
+        <button class="btn-start" id="btn-start-fight" disabled>MULAI PERTARUNGAN ⚡</button>
+      </div>
+    </div>
+
+    <!-- ================= GAME STAGE ================= -->
+    <div id="game-stage" class="screen">
+      <canvas id="game" width="1280" height="720"></canvas>
+
+      <!-- HUD overlay (diposisikan via CSS di atas canvas) -->
+      <div class="hud">
+        <!-- P1 HUD -->
+        <div class="hud-side hud-left">
+          <div class="hp-bar-wrap">
+            <div class="hp-bar p1-hp" id="p1-hp-bar"></div>
+            <span class="hp-name" id="p1-hud-name">PRARORO</span>
+          </div>
+          <div class="gauge-bar-wrap">
+            <div class="gauge-bar" id="p1-gauge-bar"></div>
+            <span class="gauge-label">GOSSIP</span>
+          </div>
+          <div class="striker-slot" id="p1-striker">🎤</div>
+        </div>
+
+        <!-- Timer -->
+        <div class="hud-center">
+          <div class="timer" id="timer">99</div>
+          <div class="round-indicator" id="round-indicator">ROUND 1</div>
+        </div>
+
+        <!-- P2 HUD -->
+        <div class="hud-side hud-right">
+          <div class="hp-bar-wrap">
+            <div class="hp-bar p2-hp" id="p2-hp-bar"></div>
+            <span class="hp-name" id="p2-hud-name">FUFU</span>
+          </div>
+          <div class="gauge-bar-wrap">
+            <div class="gauge-bar" id="p2-gauge-bar"></div>
+            <span class="gauge-label">GOSSIP</span>
+          </div>
+          <div class="striker-slot" id="p2-striker">🎤</div>
+        </div>
+      </div>
+
+      <!-- Combo overlay -->
+      <div class="combo-overlay left" id="p1-combo"></div>
+      <div class="combo-overlay right" id="p2-combo"></div>
+
+      <!-- Announcement (ROUND 1, FIGHT, K.O., dsb) -->
+      <div class="announcement" id="announcement"></div>
+
+      <!-- Pause button -->
+      <button class="pause-btn" id="pause-btn">❚❚</button>
+    </div>
+
+    <!-- ================= PAUSE MENU ================= -->
+    <div id="pause-menu" class="overlay">
+      <div class="overlay-card">
+        <h2>PAUSED</h2>
+        <button class="menu-btn" data-action="resume">▶️ Lanjutkan</button>
+        <button class="menu-btn" data-action="restart">🔄 Ulang Ronde</button>
+        <button class="menu-btn" data-action="charselect">👥 Ganti Karakter</button>
+        <button class="menu-btn danger" data-action="quit">🚪 Keluar ke Menu</button>
+      </div>
+    </div>
+
+    <!-- ================= RESULT SCREEN ================= -->
+    <div id="result-screen" class="overlay">
+      <div class="overlay-card result-card">
+        <h2 id="result-title">K.O.!</h2>
+        <p class="result-winner" id="result-winner">PRARORO MENANG</p>
+        <div class="result-stats">
+          <div class="stat">
+            <span class="stat-label">Max Combo</span>
+            <span class="stat-value" id="stat-combo">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Damage</span>
+            <span class="stat-value" id="stat-damage">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Koin</span>
+            <span class="stat-value" id="stat-coin">+0 🪙</span>
+          </div>
+        </div>
+        <div class="result-actions">
+          <button class="menu-btn primary" data-action="rematch">🔄 Rematch</button>
+          <button class="menu-btn" data-action="back-menu">🏠 Menu Utama</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= TOAST / NOTIFIKASI ================= -->
+    <div id="toast" class="toast"></div>
+
+  </div>
+
+  <!-- ================= SCRIPT ================= -->
+  <script type="module" src="src/game.js"></script>
+
+  <!-- Fallback message jika JS gagal load -->
+  <noscript>
+    <div style="color:white;text-align:center;padding:40px;">
+      Game ini membutuhkan JavaScript. Aktifkan JavaScript di browser Anda.
+    </div>
+  </noscript>
+
+</body>
+</html>
