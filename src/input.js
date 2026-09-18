@@ -1,6 +1,5 @@
 /* ============================================================
    FIGHTER KONOHA — Input Manager
-   Mendukung fallback key (array) untuk antisipasi NumLock off.
    ============================================================ */
 
 import { CFG } from './config.js';
@@ -16,7 +15,6 @@ export class Input {
       }
       this.current[e.code] = true;
 
-      // Cegah scroll pakai arrow/space
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
         e.preventDefault();
       }
@@ -32,7 +30,6 @@ export class Input {
     this.buffer = this.buffer.filter((b) => b.age < CFG.INPUT_BUFFER);
   }
 
-  // code: string ATAU array of string
   consume(code) {
     const codes = Array.isArray(code) ? code : [code];
     for (let k = 0; k < codes.length; k++) {
@@ -46,7 +43,6 @@ export class Input {
     return false;
   }
 
-  // code: string ATAU array of string
   isDown(code) {
     const codes = Array.isArray(code) ? code : [code];
     for (let k = 0; k < codes.length; k++) {
