@@ -1,5 +1,6 @@
 /* ============================================================
-   FIGHTER KONOHA — Data Karakter & Move Set
+   FIGHTER KONOHA — Data Karakter
+   4 serangan dasar: punchLight, punchHeavy, kickLight, kickHeavy
    ============================================================ */
 
 export const CHARACTERS = {
@@ -10,19 +11,33 @@ export const CHARACTERS = {
     color: '#e63946',
     archetype: 'Juggernaut',
     moves: {
-      light: {
-        name: 'Jab', type: 'light',
+      punchLight: {
+        name: 'Jab', type: 'punchLight', limb: 'hand',
         startup: 4, active: 3, recovery: 8,
-        damage: 30, hitstun: 12, blockstun: 6,
+        damage: 25, hitstun: 12, blockstun: 6,
         pushback: 4, gaugeGain: 4,
-        hitbox: { x: 40, y: -80, w: 55, h: 30 }
+        hitbox: { x: 40, y: -80, w: 50, h: 30 }
       },
-      heavy: {
-        name: 'Bobby Scratch', type: 'heavy',
+      punchHeavy: {
+        name: 'Pukulan Karat', type: 'punchHeavy', limb: 'hand', heavy: true,
         startup: 10, active: 4, recovery: 18,
         damage: 80, hitstun: 22, blockstun: 12,
         pushback: 10, gaugeGain: 8,
-        hitbox: { x: 50, y: -70, w: 70, h: 50 }
+        hitbox: { x: 50, y: -75, w: 65, h: 45 }
+      },
+      kickLight: {
+        name: 'Tendangan Kotak', type: 'kickLight', limb: 'leg',
+        startup: 6, active: 3, recovery: 12,
+        damage: 35, hitstun: 14, blockstun: 8,
+        pushback: 6, gaugeGain: 5,
+        hitbox: { x: 50, y: -65, w: 70, h: 40 }
+      },
+      kickHeavy: {
+        name: 'Bobby Kick', type: 'kickHeavy', limb: 'leg', heavy: true,
+        startup: 13, active: 5, recovery: 22,
+        damage: 95, hitstun: 26, blockstun: 14,
+        pushback: 14, gaugeGain: 9,
+        hitbox: { x: 60, y: -70, w: 90, h: 50 }
       },
       special: {
         name: 'Joget Gemoy', type: 'special',
@@ -47,19 +62,33 @@ export const CHARACTERS = {
     color: '#38b000',
     archetype: 'Zoner',
     moves: {
-      light: {
-        name: 'Splash', type: 'light',
+      punchLight: {
+        name: 'Splash Asam', type: 'punchLight', limb: 'hand',
         startup: 5, active: 3, recovery: 10,
-        damage: 25, hitstun: 12, blockstun: 6,
+        damage: 22, hitstun: 12, blockstun: 6,
         pushback: 4, gaugeGain: 4,
         hitbox: { x: 40, y: -80, w: 50, h: 30 }
       },
-      heavy: {
-        name: 'Sulfur Splash', type: 'heavy',
-        startup: 12, active: 2, recovery: 22,
+      punchHeavy: {
+        name: 'Pukulan Sulfur', type: 'punchHeavy', limb: 'hand', heavy: true,
+        startup: 12, active: 3, recovery: 20,
         damage: 70, hitstun: 20, blockstun: 10,
         pushback: 8, gaugeGain: 8,
-        hitbox: { x: 45, y: -80, w: 65, h: 40 }
+        hitbox: { x: 50, y: -75, w: 60, h: 40 }
+      },
+      kickLight: {
+        name: 'Tendangan Racun', type: 'kickLight', limb: 'leg',
+        startup: 7, active: 3, recovery: 14,
+        damage: 32, hitstun: 14, blockstun: 8,
+        pushback: 6, gaugeGain: 5,
+        hitbox: { x: 55, y: -65, w: 75, h: 40 }
+      },
+      kickHeavy: {
+        name: 'Semburan Kaki', type: 'kickHeavy', limb: 'leg', heavy: true,
+        startup: 14, active: 5, recovery: 24,
+        damage: 85, hitstun: 24, blockstun: 14,
+        pushback: 12, gaugeGain: 9,
+        hitbox: { x: 65, y: -70, w: 95, h: 50 }
       },
       special: {
         name: 'Akun Anonim', type: 'special',
@@ -85,19 +114,33 @@ export const CHARACTERS = {
     color: '#3a86ff',
     archetype: 'Puppeteer',
     moves: {
-      light: {
-        name: 'Rhetoric Jab', type: 'light',
+      punchLight: {
+        name: 'Jab Retorika', type: 'punchLight', limb: 'hand',
         startup: 5, active: 3, recovery: 10,
-        damage: 28, hitstun: 12, blockstun: 6,
+        damage: 25, hitstun: 12, blockstun: 6,
         pushback: 4, gaugeGain: 4,
         hitbox: { x: 40, y: -80, w: 55, h: 30 }
       },
-      heavy: {
-        name: 'Rhetoric Wave', type: 'heavy',
-        startup: 12, active: 5, recovery: 18,
-        damage: 75, hitstun: 20, blockstun: 10,
-        pushback: 12, gaugeGain: 8,
-        hitbox: { x: 60, y: -100, w: 90, h: 60 }
+      punchHeavy: {
+        name: 'Pukulan Buku', type: 'punchHeavy', limb: 'hand', heavy: true,
+        startup: 11, active: 4, recovery: 18,
+        damage: 72, hitstun: 20, blockstun: 10,
+        pushback: 10, gaugeGain: 8,
+        hitbox: { x: 55, y: -80, w: 70, h: 45 }
+      },
+      kickLight: {
+        name: 'Tendangan Podium', type: 'kickLight', limb: 'leg',
+        startup: 6, active: 3, recovery: 12,
+        damage: 33, hitstun: 14, blockstun: 8,
+        pushback: 6, gaugeGain: 5,
+        hitbox: { x: 55, y: -65, w: 75, h: 40 }
+      },
+      kickHeavy: {
+        name: 'Sabetan Gagasan', type: 'kickHeavy', limb: 'leg', heavy: true,
+        startup: 13, active: 5, recovery: 22,
+        damage: 82, hitstun: 25, blockstun: 14,
+        pushback: 13, gaugeGain: 9,
+        hitbox: { x: 60, y: -70, w: 90, h: 50 }
       },
       special: {
         name: 'Gagasan Barrier', type: 'special',
@@ -122,19 +165,33 @@ export const CHARACTERS = {
     color: '#ff7b00',
     archetype: 'Rushdown',
     moves: {
-      light: {
-        name: 'Quick Jab', type: 'light',
+      punchLight: {
+        name: 'Jab Cepat', type: 'punchLight', limb: 'hand',
         startup: 3, active: 2, recovery: 7,
-        damage: 22, hitstun: 10, blockstun: 5,
+        damage: 20, hitstun: 10, blockstun: 5,
         pushback: 3, gaugeGain: 4,
         hitbox: { x: 35, y: -80, w: 50, h: 28 }
       },
-      heavy: {
-        name: 'Red Bull Charge', type: 'heavy',
+      punchHeavy: {
+        name: 'Red Bull Punch', type: 'punchHeavy', limb: 'hand', heavy: true,
         startup: 9, active: 4, recovery: 16,
-        damage: 70, hitstun: 18, blockstun: 10,
-        pushback: 14, gaugeGain: 8,
-        hitbox: { x: 45, y: -80, w: 80, h: 50 }
+        damage: 65, hitstun: 18, blockstun: 10,
+        pushback: 12, gaugeGain: 8,
+        hitbox: { x: 45, y: -80, w: 70, h: 45 }
+      },
+      kickLight: {
+        name: 'Tendangan Cepat', type: 'kickLight', limb: 'leg',
+        startup: 4, active: 3, recovery: 10,
+        damage: 28, hitstun: 12, blockstun: 6,
+        pushback: 5, gaugeGain: 5,
+        hitbox: { x: 50, y: -65, w: 70, h: 38 }
+      },
+      kickHeavy: {
+        name: 'Mudik Kick', type: 'kickHeavy', limb: 'leg', heavy: true,
+        startup: 11, active: 5, recovery: 20,
+        damage: 75, hitstun: 22, blockstun: 12,
+        pushback: 14, gaugeGain: 9,
+        hitbox: { x: 55, y: -70, w: 85, h: 50 }
       },
       special: {
         name: 'Mudik Dash', type: 'special',
