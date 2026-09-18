@@ -10,10 +10,9 @@
 </head>
 <body>
 
-  <!-- ================= APP WRAPPER ================= -->
   <div id="app">
 
-    <!-- ================= LOADING SCREEN ================= -->
+    <!-- ============ LOADING ============ -->
     <div id="loading-screen" class="screen active">
       <div class="loading-content">
         <h1 class="game-logo">FIGHTER <span>KONOHA</span></h1>
@@ -25,7 +24,7 @@
       </div>
     </div>
 
-    <!-- ================= MAIN MENU ================= -->
+    <!-- ============ MAIN MENU ============ -->
     <div id="main-menu" class="screen">
       <div class="menu-bg-grid"></div>
       <div class="menu-content">
@@ -40,25 +39,21 @@
             <span class="btn-label">Pilpres Mode</span>
             <span class="btn-desc">Story / Arcade • 8 Dapil</span>
           </button>
-
           <button class="menu-btn" data-mode="koalisi">
             <span class="btn-icon">⚔️</span>
             <span class="btn-label">Koalisi Mode</span>
             <span class="btn-desc">Versus 1v1 / 2v2</span>
           </button>
-
           <button class="menu-btn" data-mode="latihan">
             <span class="btn-icon">🥋</span>
             <span class="btn-label">Latihan Kader</span>
             <span class="btn-desc">Training • Bebas Kombo</span>
           </button>
-
           <button class="menu-btn" data-mode="toko">
             <span class="btn-icon">👕</span>
             <span class="btn-label">Toko Kemeja</span>
             <span class="btn-desc">Kosmetik & Skin</span>
           </button>
-
           <button class="menu-btn" data-mode="catatan">
             <span class="btn-icon">📓</span>
             <span class="btn-label">Buku Catatan Hitam</span>
@@ -72,14 +67,12 @@
             <span id="coin-amount">0</span>
             <span class="coin-label">Koin Rakyat</span>
           </div>
-          <p class="disclaimer">
-            ⚠️ Karya parodi satir. Semua karakter, nama, dan kejadian bersifat fiktif.
-          </p>
+          <p class="disclaimer">⚠️ Karya parodi satir. Semua karakter, nama, dan kejadian bersifat fiktif.</p>
         </footer>
       </div>
     </div>
 
-    <!-- ================= CHARACTER SELECT ================= -->
+    <!-- ============ CHARACTER SELECT ============ -->
     <div id="char-select" class="screen">
       <div class="select-header">
         <h2>PILIH KARAKTER</h2>
@@ -87,7 +80,6 @@
       </div>
 
       <div class="select-body">
-        <!-- P1 panel -->
         <div class="player-panel p1-panel">
           <h3>PLAYER 1</h3>
           <div class="portrait-frame">
@@ -97,12 +89,8 @@
           <p class="char-archetype" id="p1-arch">Pilih karakter</p>
         </div>
 
-        <!-- Roster grid -->
-        <div class="roster" id="roster">
-          <!-- diisi via JS -->
-        </div>
+        <div class="roster" id="roster"></div>
 
-        <!-- P2 panel -->
         <div class="player-panel p2-panel">
           <h3 id="p2-panel-label">PLAYER 2</h3>
           <div class="portrait-frame">
@@ -119,13 +107,11 @@
       </div>
     </div>
 
-    <!-- ================= GAME STAGE ================= -->
+    <!-- ============ GAME STAGE ============ -->
     <div id="game-stage" class="screen">
       <canvas id="game" width="1280" height="720"></canvas>
 
-      <!-- HUD overlay (diposisikan via CSS di atas canvas) -->
       <div class="hud">
-        <!-- P1 HUD -->
         <div class="hud-side hud-left">
           <div class="hp-bar-wrap">
             <div class="hp-bar p1-hp" id="p1-hp-bar"></div>
@@ -138,13 +124,11 @@
           <div class="striker-slot" id="p1-striker">🎤</div>
         </div>
 
-        <!-- Timer -->
         <div class="hud-center">
           <div class="timer" id="timer">99</div>
           <div class="round-indicator" id="round-indicator">ROUND 1</div>
         </div>
 
-        <!-- P2 HUD -->
         <div class="hud-side hud-right">
           <div class="hp-bar-wrap">
             <div class="hp-bar p2-hp" id="p2-hp-bar"></div>
@@ -158,18 +142,31 @@
         </div>
       </div>
 
-      <!-- Combo overlay -->
       <div class="combo-overlay left" id="p1-combo"></div>
       <div class="combo-overlay right" id="p2-combo"></div>
 
-      <!-- Announcement (ROUND 1, FIGHT, K.O., dsb) -->
       <div class="announcement" id="announcement"></div>
 
-      <!-- Pause button -->
       <button class="pause-btn" id="pause-btn">❚❚</button>
+
+      <!-- Panel kontrol P1 & P2 -->
+      <div class="controls-hint" id="controls-hint">
+        <div class="ctrl-col">
+          <strong>P1</strong>
+          <span>WASD gerak • J light • K heavy</span>
+          <span>L special • U ultimate</span>
+          <span>T taunt • I striker</span>
+        </div>
+        <div class="ctrl-col">
+          <strong>P2</strong>
+          <span>← → ↑ ↓ gerak • , light • . heavy</span>
+          <span>/ special • ' ultimate</span>
+          <span>[ taunt • ] striker</span>
+        </div>
+      </div>
     </div>
 
-    <!-- ================= PAUSE MENU ================= -->
+    <!-- ============ PAUSE ============ -->
     <div id="pause-menu" class="overlay">
       <div class="overlay-card">
         <h2>PAUSED</h2>
@@ -180,7 +177,7 @@
       </div>
     </div>
 
-    <!-- ================= RESULT SCREEN ================= -->
+    <!-- ============ RESULT ============ -->
     <div id="result-screen" class="overlay">
       <div class="overlay-card result-card">
         <h2 id="result-title">K.O.!</h2>
@@ -206,20 +203,16 @@
       </div>
     </div>
 
-    <!-- ================= TOAST / NOTIFIKASI ================= -->
     <div id="toast" class="toast"></div>
+    <div id="fatal-error" class="fatal-error"></div>
 
   </div>
 
-  <!-- ================= SCRIPT ================= -->
-  <script type="module" src="src/game.js"></script>
-
-  <!-- Fallback message jika JS gagal load -->
+  <script src="src/game.js"></script>
   <noscript>
     <div style="color:white;text-align:center;padding:40px;">
-      Game ini membutuhkan JavaScript. Aktifkan JavaScript di browser Anda.
+      Game ini membutuhkan JavaScript.
     </div>
   </noscript>
-
 </body>
 </html>
