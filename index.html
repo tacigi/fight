@@ -12,7 +12,6 @@
 
   <div id="app">
 
-    <!-- ================= LOADING SCREEN ================= -->
     <div id="loading-screen" class="screen active">
       <div class="loading-content">
         <h1 class="game-logo">FIGHTER <span>KONOHA</span></h1>
@@ -24,7 +23,6 @@
       </div>
     </div>
 
-    <!-- ================= MAIN MENU ================= -->
     <div id="main-menu" class="screen">
       <div class="menu-bg-grid"></div>
       <div class="menu-content">
@@ -59,6 +57,11 @@
             <span class="btn-label">Buku Catatan Hitam</span>
             <span class="btn-desc">Achievements</span>
           </button>
+          <button class="menu-btn" id="btn-open-settings">
+            <span class="btn-icon">⚙️</span>
+            <span class="btn-label">Pengaturan</span>
+            <span class="btn-desc">Audio & Info Tombol</span>
+          </button>
         </nav>
 
         <footer class="menu-footer">
@@ -74,7 +77,6 @@
       </div>
     </div>
 
-    <!-- ================= CHARACTER SELECT ================= -->
     <div id="char-select" class="screen">
       <div class="select-header">
         <h2>PILIH KARAKTER</h2>
@@ -109,7 +111,6 @@
       </div>
     </div>
 
-    <!-- ================= GAME STAGE ================= -->
     <div id="game-stage" class="screen">
       <canvas id="game" width="1280" height="720"></canvas>
 
@@ -152,18 +153,50 @@
       <button class="pause-btn" id="pause-btn">❚❚</button>
     </div>
 
-    <!-- ================= PAUSE MENU ================= -->
     <div id="pause-menu" class="overlay">
       <div class="overlay-card">
         <h2>PAUSED</h2>
         <button class="menu-btn" data-action="resume">▶️ Lanjutkan</button>
         <button class="menu-btn" data-action="restart">🔄 Ulang Ronde</button>
         <button class="menu-btn" data-action="charselect">👥 Ganti Karakter</button>
+        <button class="menu-btn" id="btn-pause-settings">⚙️ Pengaturan</button>
         <button class="menu-btn danger" data-action="quit">🚪 Keluar ke Menu</button>
       </div>
     </div>
 
-    <!-- ================= RESULT SCREEN ================= -->
+    <div id="settings-menu" class="overlay">
+      <div class="overlay-card settings-card">
+        <h2>PENGATURAN</h2>
+
+        <div class="settings-section">
+          <h3>Audio</h3>
+          <label class="settings-slider">
+            <span>Volume Utama</span>
+            <input type="range" id="opt-master" min="0" max="100" value="80" />
+          </label>
+          <label class="settings-slider">
+            <span>Efek Suara (SFX)</span>
+            <input type="range" id="opt-sfx" min="0" max="100" value="90" />
+          </label>
+          <label class="settings-slider">
+            <span>Musik Latar</span>
+            <input type="range" id="opt-music" min="0" max="100" value="45" />
+          </label>
+          <label class="settings-toggle">
+            <input type="checkbox" id="opt-music-on" checked />
+            <span>Musik latar aktif</span>
+          </label>
+        </div>
+
+        <div class="settings-section">
+          <h3>Info Tombol</h3>
+          <div class="controls-table" id="controls-table"></div>
+        </div>
+
+        <button class="menu-btn primary" id="settings-back">← Kembali</button>
+      </div>
+    </div>
+
     <div id="result-screen" class="overlay">
       <div class="overlay-card result-card">
         <h2 id="result-title">K.O.!</h2>
