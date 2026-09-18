@@ -1,5 +1,6 @@
 /* ============================================================
    FIGHTER KONOHA — Audio Manager
+   Sudah termasuk SFX khusus tendangan (kick).
    ============================================================ */
 
 import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY } from './config.js';
@@ -100,9 +101,26 @@ export class AudioManager {
     src.start(t0);
   }
 
-  hitLight()  { this.noiseBurst({ dur: 0.08, gain: 0.4, filterFreq: 1800 }); this.tone({ freq: 220, dur: 0.08, type: 'square', gain: 0.2 }); }
-  hitHeavy()  { this.noiseBurst({ dur: 0.16, gain: 0.5, filterFreq: 900 });  this.tone({ freq: 110, dur: 0.18, type: 'sawtooth', gain: 0.3, slideTo: 60 }); }
-  hitBlock()  { this.tone({ freq: 700, dur: 0.06, type: 'square', gain: 0.15 }); this.noiseBurst({ dur: 0.05, gain: 0.2, filterFreq: 3000 }); }
+  hitLight() {
+    this.noiseBurst({ dur: 0.08, gain: 0.4, filterFreq: 1800 });
+    this.tone({ freq: 220, dur: 0.08, type: 'square', gain: 0.2 });
+  }
+  hitHeavy() {
+    this.noiseBurst({ dur: 0.16, gain: 0.5, filterFreq: 900 });
+    this.tone({ freq: 110, dur: 0.18, type: 'sawtooth', gain: 0.3, slideTo: 60 });
+  }
+  kickLight() {
+    this.noiseBurst({ dur: 0.1, gain: 0.35, filterFreq: 1000 });
+    this.tone({ freq: 150, dur: 0.1, type: 'sine', gain: 0.25, slideTo: 80 });
+  }
+  kickHeavy() {
+    this.noiseBurst({ dur: 0.2, gain: 0.55, filterFreq: 700 });
+    this.tone({ freq: 90, dur: 0.22, type: 'sawtooth', gain: 0.35, slideTo: 45 });
+  }
+  hitBlock()  {
+    this.tone({ freq: 700, dur: 0.06, type: 'square', gain: 0.15 });
+    this.noiseBurst({ dur: 0.05, gain: 0.2, filterFreq: 3000 });
+  }
   jump()      { this.tone({ freq: 300, dur: 0.12, type: 'sine', gain: 0.18, slideTo: 500 }); }
   special()   { this.tone({ freq: 500, dur: 0.25, type: 'triangle', gain: 0.22, slideTo: 900 }); }
   ultimate()  {
