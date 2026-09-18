@@ -1,5 +1,6 @@
 /* ============================================================
    FIGHTER KONOHA — Class Fighter
+   Sudah mendukung crouch (menunduk).
    ============================================================ */
 
 import { CFG } from './config.js';
@@ -36,10 +37,15 @@ export class Fighter {
     this.comboTimer = 0;
     this.maxCombo = 0;
     this.totalDamage = 0;
+    this.crouching = false;   // <-- FITUR BARU
   }
 
+  // Hurtbox mengecil saat menunduk
   get hurtbox() {
     if (this.invincible > 0 || this.state === 'ko') return null;
+    if (this.crouching) {
+      return { x: this.x - 30, y: this.y - 70, w: 60, h: 70 };
+    }
     return { x: this.x - 30, y: this.y - 110, w: 60, h: 110 };
   }
 
@@ -80,6 +86,7 @@ export class Fighter {
 
     if (this.hitstun > 0 || this.stunTimer > 0) {
       this.state = 'hitstun';
+      this.crouching = false;
       this.applyPhysics();
       return;
     }
@@ -103,7 +110,21 @@ export class Fighter {
       (this.facing === -1 && input.isDown(k.right));
 
     this.blocking = holdingBack && grounded;
-    if (!grounded) return;
+
+    if (!grounded) {
+      this.crouching = false;
+      return;
+    }
+
+    // ---- FITUR CROUCH ----
+    // Jika tombol "down" ditahan saat di darat -> crouch.
+    // Prioritas: crouch > jalan > idle.
+    if (input.isDown(k.down)) {
+      this.crouching = true;
+      this.state = 'crouch';
+      return;
+    }
+    this.crouching = false;
 
     let moving = false;
     if (input.isDown(k.left)) {
@@ -175,6 +196,7 @@ export class Fighter {
   applyPhysics() {
     const airborne = this.y < CFG.GROUND || this.vy < 0;
     if (airborne) {
+      this.crouching = false;
       this.vy += CFG.GRAVITY;
       this.y += this.vy;
       this.x += this.vx;
@@ -209,6 +231,7 @@ export class Fighter {
     if (this.hp <= 0) {
       this.hp = 0;
       this.state = 'ko';
+      this.crouching = false;
       if (window.FK_sfx) window.FK_sfx.ko();
     }
   }
